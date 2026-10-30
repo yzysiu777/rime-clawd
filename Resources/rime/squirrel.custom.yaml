@@ -1,0 +1,71 @@
+# 鼠须管主题：Claude（Claude 风格为主，带一点点毛玻璃）+ 输入栏像素小螃蟹 Clawd
+# 由 Clawd.app 安装；你原来的配置备份在 ~/Library/Rime/backup_clawd_<时间>/
+# 颜色写法：0xAABBGGRR（注意是 BGR 顺序，AA 是不透明度）
+patch:
+  "style/color_scheme": claude_light
+  "style/color_scheme_dark": claude_dark
+
+  # 布局
+  "style/candidate_list_layout": linear
+  "style/text_orientation": horizontal
+  # 拼音显示在候选框顶部的「输入栏」里，小螃蟹住在这一栏
+  "style/inline_preedit": false
+  "style/inline_candidate": false
+  "style/memorize_size": true
+  "style/show_paging": false
+  "style/mutual_exclusive": false
+  # 底色 95% 不透明：主体是 Claude 的纸面质感，只透出一点点系统模糊。
+  # 想要更「玻璃」就把下面 back_color 开头的 F2 调小（比如 C0）。
+  "style/translucency": true
+
+  # 字体：西文/拼音用系统字体（SF），像素螃蟹和 ✻ 用 Menlo，中文 PingFang。
+  # Menlo 必须排在 PingFang 前面，否则螃蟹会被两种字体拼得上下错位。
+  "style/font_face": ".AppleSystemUIFont, Menlo, PingFang SC"
+  "style/font_point": 15
+  "style/label_font_face": ".AppleSystemUIFont, PingFang SC"
+  "style/label_font_point": 11
+  "style/comment_font_face": ".AppleSystemUIFont, PingFang SC"
+  "style/comment_font_point": 12
+  "style/candidate_format": "[label] [candidate] [comment]"
+
+  # 形状：Claude 输入框那种大圆角 + 1px 暖灰细边
+  "style/corner_radius": 16
+  "style/hilited_corner_radius": 10
+  "style/border_width": 1
+  "style/border_height": 1
+  "style/spacing": 10                 # 输入栏和候选行之间
+  "style/line_spacing": 0             # 也是输入栏的行距：0 让两行像素螃蟹贴紧
+  "style/shadow_size": 0
+  "style/base_offset": 0
+
+  "preset_color_schemes/claude_light":
+    name: "Claude 浅色"
+    author: "Claude"
+    back_color: 0xF2F5F9FA                  # 象牙白 #FAF9F5（Claude 页面底色）
+    border_color: 0x261D1E1F                # 暖灰细边 #1F1E1D @15%
+    preedit_back_color: 0xFFFFFFFF          # 输入栏：纯白，像 Claude 的输入框
+    text_color: 0xFF5777D9                  # 光标、火花、小螃蟹：Claude 橙 #D97757
+    hilited_text_color: 0xFF3A3D3D          # 正在输入的拼音 #3D3D3A
+    candidate_text_color: 0xFF131414        # 候选字 #141413
+    label_color: 0xFF9B9A96                 # 序号 #969A9B 偏暖灰
+    comment_text_color: 0xFF6C7273          # 注释 #73726C
+    hilited_candidate_back_color: 0xFF4264C9  # 选中：Claude 按钮橙 #C96442
+    hilited_candidate_text_color: 0xFFFFFFFF
+    hilited_candidate_label_color: 0xCCFFFFFF
+    hilited_comment_text_color: 0xD9FFFFFF
+
+  "preset_color_schemes/claude_dark":
+    name: "Claude 深色"
+    author: "Claude"
+    back_color: 0xF2242626                  # 炭灰 #262624（Claude 深色页面）
+    border_color: 0x26D1DCDE                # #DEDCD1 @15%
+    preedit_back_color: 0xFF2E3030          # 输入栏 #30302E，像 Claude 深色输入框
+    text_color: 0xFF5777D9                  # Claude 橙 #D97757
+    hilited_text_color: 0xFFDFE4E5          # #E5E4DF
+    candidate_text_color: 0xFFF5F9FA        # #FAF9F5
+    label_color: 0xFF8A8F91                 # #918F8A
+    comment_text_color: 0xFF9BA2A3          # #A3A29B
+    hilited_candidate_back_color: 0xFF5777D9  # #D97757
+    hilited_candidate_text_color: 0xFFFFFFFF
+    hilited_candidate_label_color: 0xCCFFFFFF
+    hilited_comment_text_color: 0xD9FFFFFF

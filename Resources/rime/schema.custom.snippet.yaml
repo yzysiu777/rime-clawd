@@ -1,0 +1,8 @@
+# 把下面几行加到 ~/Library/Rime/<方案名>.custom.yaml 的 patch: 下面，然后重新部署。
+# 如果文件里已经有 "engine/translators/+"，就别再写一个新键，直接在它的列表里加一行 - lua_translator@*clawd
+patch:
+  "engine/translators/+":
+    - lua_translator@*clawd
+  clawd:
+    style: companion   # companion | clawd | crab | emoji | off
+    sparkle: true      # 光标后面的 ✻ 火花
