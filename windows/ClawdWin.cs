@@ -430,7 +430,7 @@ namespace ClawdWin
         public static string RimeBackup { get { return (string)Get("RimeBackup", ""); } set { Set("RimeBackup", value); } }
 
         /// 100% 缩放下每个像素格的边长（物理像素，再乘以显示器缩放比例）
-        public static float BaseUnit { get { return Size == "s" ? 1f : Size == "l" ? 3f : 2f; } }
+        public static float BaseUnit { get { return Size == "s" ? 1f : Size == "l" ? 2.4f : 1.6f; } }
 
         public static bool IsHalloweenSeason
         {
@@ -917,7 +917,11 @@ namespace ClawdWin
                 }
             }
             float scale = lastScale;
-            float unit = Math.Max(1f, (float)Math.Round(Prefs.BaseUnit * scale));
+            float scaledUnit = Prefs.BaseUnit * scale;
+            // Keep small unchanged; half-pixel steps allow medium to sit between small and its former size.
+            float unit = Math.Max(1f, Prefs.Size == "s"
+                ? (float)Math.Round(scaledUnit)
+                : (float)Math.Round(scaledUnit * 2f) / 2f);
 
             if (want)
             {
