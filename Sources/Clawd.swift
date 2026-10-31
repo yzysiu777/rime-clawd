@@ -375,6 +375,17 @@ final class Prefs {
     }
     static var unit: CGFloat { ["s": 1.0, "m": 1.5, "l": 2.0][size] ?? 1.5 }
 
+    /// 中文模式下默认用英文标点；写进 punct 文件，由 lua/clawd_punct.lua 读取
+    static var englishPunct: Bool {
+        get { d.object(forKey: "englishPunct") as? Bool ?? true }
+        set { d.set(newValue, forKey: "englishPunct"); writePunct() }
+    }
+
+    static func writePunct() {
+        try? FileManager.default.createDirectory(atPath: STATE_DIR, withIntermediateDirectories: true)
+        try? (englishPunct ? "en\n" : "zh\n").write(toFile: STATE_DIR + "/punct", atomically: true, encoding: .utf8)
+    }
+
     static var showIcon: Bool {
         get { d.object(forKey: "showIcon") as? Bool ?? true }
         set { d.set(newValue, forKey: "showIcon") }
@@ -429,6 +440,7 @@ enum RimeInstaller {
 
     static let block = """
     \(beginMark)
+      "engine/processors/@before 0": lua_processor@*clawd_punct
       "engine/translators/+":
         - lua_translator@*clawd
       clawd:
@@ -470,8 +482,10 @@ enum RimeInstaller {
             let theme = try String(contentsOfFile: resDir + "/squirrel.custom.yaml", encoding: .utf8)
             try theme.write(toFile: rime + "/squirrel.custom.yaml", atomically: true, encoding: .utf8)
             // 2. Lua 脚本
-            try? fm.removeItem(atPath: rime + "/lua/clawd.lua")
-            try fm.copyItem(atPath: resDir + "/clawd.lua", toPath: rime + "/lua/clawd.lua")
+            for f in ["clawd.lua", "clawd_punct.lua"] {
+                try? fm.removeItem(atPath: rime + "/lua/" + f)
+                try fm.copyItem(atPath: resDir + "/" + f, toPath: rime + "/lua/" + f)
+            }
             // 3. 给雾凇拼音挂上脚本
             var note = ""
             if fm.fileExists(atPath: rime + "/rime_ice.schema.yaml") {
@@ -513,6 +527,7 @@ enum RimeInstaller {
             try? text.write(toFile: rime + "/rime_ice.custom.yaml", atomically: true, encoding: .utf8)
         }
         try? fm.removeItem(atPath: rime + "/lua/clawd.lua")
+        try? fm.removeItem(atPath: rime + "/lua/clawd_punct.lua")
         if let backup = UserDefaults.standard.string(forKey: "rimeBackup"),
            fm.fileExists(atPath: backup + "/squirrel.custom.yaml") {
             try? fm.removeItem(atPath: rime + "/squirrel.custom.yaml")
@@ -981,6 +996,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var model = SettingsModel(app: self)
 
     func applicationDidFinishLaunching(_ n: Notification) {
+        Prefs.writePunct()
         ctl = ClawdController()
         updateStatusItem()
         // 第一次启动：默认开机自启
@@ -1045,6 +1061,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         show.target = self
         m.addItem(show)
 
+        let punct = NSMenuItem(title: "英文标点", action: #selector(togglePunct), keyEquivalent: "")
+        punct.state = Prefs.englishPunct ? .on : .off
+        punct.toolTip = "勾上：中文模式下输出 , . ? 等英文标点；取消：输出 ，。？ 等中文标点。⌃⇧3 也能临时切换。"
+        punct.target = self
+        m.addItem(punct)
+        m.addItem(.separator())
+
         let costume = NSMenuItem(title: "装扮", action: nil, keyEquivalent: "")
         let cm = NSMenu()
         for (c, name) in [(Costume.auto, "自动（节日换装）"), (.classic, "经典"), (.witch, "女巫 🧹")] {
@@ -1091,6 +1114,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func openSettings() { showSettings() }
     @objc func toggleShow() { Prefs.enabled.toggle(); prefsChanged() }
+    @objc func togglePunct() { Prefs.englishPunct.toggle(); prefsChanged() }
     @objc func pickCostume(_ s: NSMenuItem) {
         Prefs.costume = Costume(rawValue: s.representedObject as? String ?? "auto") ?? .auto
         prefsChanged()
@@ -1151,6 +1175,9 @@ final class SettingsModel: ObservableObject {
     @Published var enabled = Prefs.enabled {
         didSet { if enabled != Prefs.enabled { Prefs.enabled = enabled; app?.prefsChanged() } }
     }
+    @Published var englishPunct = Prefs.englishPunct {
+        didSet { if englishPunct != Prefs.englishPunct { Prefs.englishPunct = englishPunct; app?.prefsChanged() } }
+    }
     @Published var showIcon = Prefs.showIcon {
         didSet { if showIcon != Prefs.showIcon { Prefs.showIcon = showIcon; app?.updateStatusItem() } }
     }
@@ -1170,7 +1197,7 @@ final class SettingsModel: ObservableObject {
     func uninstallRime() { rimeMessage = RimeInstaller.uninstall(); refresh() }
 
     func refresh() {
-        enabled = Prefs.enabled; showIcon = Prefs.showIcon
+        enabled = Prefs.enabled; showIcon = Prefs.showIcon; englishPunct = Prefs.englishPunct
         costume = Prefs.costume.rawValue; size = Prefs.size
         login = LoginItem.isOn
         rimeStatus = RimeInstaller.statusText
@@ -1355,6 +1382,12 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
+                    Toggle("中文模式下使用英文标点", isOn: $m.englishPunct)
+                } footer: {
+                    Text("打开后，打中文时 , . ? ! 等都输出英文标点；关掉则输出 ，。？！。菜单栏里也能一键切换，⌃⇧3 可以临时切换。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section {
                     HStack {
                         Text(m.rimeStatus).foregroundStyle(m.rimeInstalled ? .primary : .secondary)
                         Spacer()
@@ -1397,7 +1430,7 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .scrollDisabled(true)
         }
-        .frame(width: 480, height: 676)
+        .frame(width: 480, height: 760)
     }
 }
 

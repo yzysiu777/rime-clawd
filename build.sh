@@ -31,7 +31,7 @@ build() {
   rm -rf "$iconset"
 
   echo "→ 打包输入法配置"
-  cp Resources/rime/squirrel.custom.yaml Resources/rime/clawd.lua "$APP/Contents/Resources/rime/"
+  cp Resources/rime/squirrel.custom.yaml Resources/rime/clawd.lua Resources/rime/clawd_punct.lua "$APP/Contents/Resources/rime/"
 
   cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
