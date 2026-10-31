@@ -25,7 +25,7 @@ macOS（鼠须管 Squirrel）· Windows（小狼毫 Weasel，测试版）
 - **一键安装**：主题和脚本都打包在 App 里，点一下「安装到鼠须管」就配置好。原配置自动备份，卸载时还原。
 - **开机自启、几乎不耗电**：只在你打字时动画，空闲时 CPU 占用为 0。
 - **Apple 芯片和 Intel Mac 都能用**（通用二进制，macOS 13+）。
-- **也有 Windows 版**（小狼毫，测试版）：单个 exe，用 Windows 自带的编译器就能编译，见 [windows/README.md](windows/README.md)。
+- **也有 Windows 版**（小狼毫，测试版）：单个 77KB 的 exe，安装方法见下面的 [Windows 安装](#windows小狼毫测试版)。
 
 <p align="center"><img src="docs/panel.png" width="560" alt="真实候选框效果"></p>
 
@@ -44,10 +44,6 @@ macOS（鼠须管 Squirrel）· Windows（小狼毫 Weasel，测试版）
 <p align="center"><img src="docs/sprites.png" width="640" alt="全部造型"></p>
 
 ## 安装
-
-### Windows（小狼毫）
-
-见 [windows/README.md](windows/README.md)。造型和 macOS 版逐像素一致，每次构建都会自动比对。
 
 ### macOS（鼠须管）
 
@@ -68,9 +64,29 @@ macOS（鼠须管 Squirrel）· Windows（小狼毫 Weasel，测试版）
 
 > 菜单栏图标太多时，macOS 会把新图标收进菜单栏左侧的「»」里。点开「»」就能找到它。
 
+### Windows（小狼毫，测试版）
+
+**前提**：Windows 10 或 11，已经装好 [小狼毫](https://rime.im)（0.15 以上，在 0.17 系列上开发）和 [雾凇拼音](https://github.com/iDvel/rime-ice)。
+
+1. **下载**：到 [Releases](../../releases) 下载 `Clawd-windows-x.y.z.zip`。
+   - 想先试用测试版，可以打开 [Actions › Windows build](../../actions/workflows/windows.yml)，点最新一次成功的构建，在页面底部的 Artifacts 里下载 **Clawd-windows**（需要登录 GitHub）。
+2. **放好**：解压出 `Clawd.exe`，放进一个固定的文件夹，比如 `D:\Tools\Clawd\`。开机自启会记住这个位置，之后别再移动它；要换位置的话，先在设置里关掉开机自启，移动后再打开。
+3. **第一次打开**：双击 `Clawd.exe`。如果 Windows 提示「Windows 已保护你的电脑」，点「更多信息」，再点「仍要运行」（这个程序没有付费的代码签名）。
+4. **安装到小狼毫**：打开后会弹出设置窗口，点 **「安装到小狼毫」**。它会安装 Claude 风格的小狼毫主题和小螃蟹脚本，原来的配置自动备份到 `%APPDATA%\Rime\backup_clawd_<时间>\`。
+5. **试一下**：等小狼毫重新部署完（右下角会有提示），切到小狼毫随便打几个字，Clawd 就会站在候选框上。
+
+之后想回到设置窗口：双击屏幕右下角通知区域里的小 Clawd 图标（图标可能收在「^」里），或者再打开一次 `Clawd.exe`。
+
+**如果 Clawd 没有正好站在候选框上**：不同版本的小狼毫，候选框窗口四周留的空白可能不一样。在设置窗口的「位置微调」里调「左右」「上下」就行，单位是像素（按 100% 缩放计算），调完立刻生效。
+
+**如果打字时完全看不到 Clawd**：
+- 确认设置窗口里「打字时显示 Clawd」是勾上的，「小狼毫主题与小螃蟹脚本」显示「已安装 ✓」。
+- 在小狼毫的托盘菜单里点一次「重新部署」。
+- 还是不行的话，把 `%LOCALAPPDATA%\ClawdCompanion\live.log` 的内容贴到 [issue](../../issues) 里，能看出卡在哪一步。
+
 ## 使用其他输入方案
 
-自动安装目前只会给**雾凇拼音**（`rime_ice`）挂上小螃蟹脚本。用其他方案（比如朙月拼音 `luna_pinyin`）的话，先在设置里点一次「安装到鼠须管」装好主题和 `lua/clawd.lua`，然后在 `~/Library/Rime/<方案名>.custom.yaml` 的 `patch:` 下面加上这几行（见 [`Resources/rime/schema.custom.snippet.yaml`](Resources/rime/schema.custom.snippet.yaml)），再重新部署：
+自动安装目前只会给**雾凇拼音**（`rime_ice`）挂上小螃蟹脚本。用其他方案（比如朙月拼音 `luna_pinyin`）的话，先在设置里点一次「安装到鼠须管 / 小狼毫」装好主题和 `lua/clawd.lua`，然后在用户文件夹（macOS 是 `~/Library/Rime/`，Windows 是 `%APPDATA%\Rime\`）的 `<方案名>.custom.yaml` 的 `patch:` 下面加上这几行（见 [`Resources/rime/schema.custom.snippet.yaml`](Resources/rime/schema.custom.snippet.yaml)），再重新部署：
 
 ```yaml
 patch:
@@ -87,7 +103,7 @@ patch:
 
 | 取值 | 效果 |
 |---|---|
-| `companion`（默认） | 像素 Clawd 由 Clawd.app 画在候选框上沿 |
+| `companion`（默认） | 像素 Clawd 由伴随程序（Clawd.app / Clawd.exe）画在候选框上沿 |
 | `clawd` | 不装 App 也能用：用方块字符在拼音下方拼出两行高的 Clawd |
 | `crab` | 单行颜文字 `V(•ᴗ•)V` |
 | `emoji` | 🦀 |
@@ -95,7 +111,7 @@ patch:
 
 ## 自定义主题
 
-主题文件是 `~/Library/Rime/squirrel.custom.yaml`，里面每个颜色都写了注释。注意鼠须管的颜色写法是 `0xAABBGGRR`（BGR 顺序，AA 是不透明度）。比如想要更「玻璃」，把 `back_color` 开头的 `F2` 调小（比如 `C0`）。改完点「重新部署」。
+主题文件在 macOS 上是 `~/Library/Rime/squirrel.custom.yaml`，在 Windows 上是 `%APPDATA%\Rime\weasel.custom.yaml`，里面每个颜色都写了注释。注意颜色写法是 `0xAABBGGRR`（BGR 顺序，AA 是不透明度）。比如在 macOS 上想要更「玻璃」，把 `back_color` 开头的 `F2` 调小（比如 `C0`）。改完点「重新部署」。
 
 ## 工作原理
 
@@ -113,7 +129,8 @@ patch:
 
 - Clawd 的造型由代码一格一格画出来（本体 24×16 像素），不用图片素材，所以在 Retina 屏上始终清晰，每个部位都能单独动。
 - 只有你在打字时才以 60 帧刷新；不打字时不跑任何定时器。
-- 排查问题可以看 `~/Library/Caches/ClawdCompanion/live.log`。
+- Windows 版原理相同：状态文件在 `%LOCALAPPDATA%\ClawdCompanion\state`，候选框窗口通过窗口类名 `WeaselPanel` 找到，Clawd 画在一个透明、点击穿透的分层窗口里。
+- 排查问题可以看 `live.log`（macOS 在 `~/Library/Caches/ClawdCompanion/`，Windows 在 `%LOCALAPPDATA%\ClawdCompanion\`）。
 
 ## 从源码构建
 
@@ -126,16 +143,22 @@ patch:
 ./build.sh demo       # 重新录制 docs/ 里的演示 GIF（需要 python3 + Pillow）
 ```
 
+**Windows**：不需要安装任何东西，Windows 自带 .NET Framework 4.x 的 C# 编译器。在仓库里双击 `windows\build.bat`，产物是 `windows\dist\Clawd.exe`（主题和 `clawd.lua` 都打包在 exe 里）。
+
+造型在两个平台上必须逐像素一致：`windows/sprites.ref.txt` 由 macOS 版 `Clawd --dump-sprites` 生成，GitHub Actions 每次在 Windows 上构建后都会用 `Clawd.exe --dump-sprites` 导出并比对，不一致就判构建失败。
+
 ## 卸载
 
 1. 打开 Clawd 的设置窗口，点「卸载」：删除小螃蟹脚本、还原原来的主题。
-2. 关掉「开机自动启动」，点「退出 Clawd」，再把 Clawd.app 拖进废纸篓。
+2. 关掉「开机自动启动」，点「退出 Clawd」，再把 Clawd.app 拖进废纸篓（Windows 上删掉 `Clawd.exe`）。
+3. Windows 版的设置保存在注册表 `HKEY_CURRENT_USER\Software\ClawdCompanion`，可以一起删掉。
 
 ## 已知限制
 
 - 候选框上方就是你正在输入的那一行，Clawd 会挡住光标右边一小块。可以在设置里调成「小」，或者关掉。
 - 为了让输入栏显示在候选框里，主题使用 `inline_preedit: false`：拼音显示在候选框顶部，不直接显示在文本框里。
 - 自动配置只支持雾凇拼音；其他方案请按上面的方法手动添加几行。
+- Windows 版还在测试中：小狼毫没有毛玻璃效果，主题是实色背景；Clawd 的位置可能需要用「位置微调」修正几个像素。
 
 ## 声明
 
