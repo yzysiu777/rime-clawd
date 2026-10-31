@@ -1,0 +1,63 @@
+# 小狼毫主题：Claude（象牙白、白色输入栏、Claude 橙选中）+ 候选框上的像素小螃蟹 Clawd
+# 由 Clawd.exe 安装；你原来的配置备份在 %APPDATA%\Rime\backup_clawd_<时间>\
+# 颜色写法：0xAABBGGRR（注意是 BGR 顺序，AA 是不透明度），和鼠须管相同
+patch:
+  "style/color_scheme": claude_light
+  "style/color_scheme_dark": claude_dark
+
+  # 横排候选；拼音显示在候选框顶部（小螃蟹站在它上面）
+  "style/horizontal": true
+  "style/inline_preedit": false
+  "style/preedit_type": composition
+  "style/label_format": "%s"
+
+  "style/font_face": "Microsoft YaHei UI"
+  "style/label_font_face": "Microsoft YaHei UI"
+  "style/comment_font_face": "Microsoft YaHei UI"
+  "style/font_point": 13
+  "style/label_font_point": 10
+  "style/comment_font_point": 11
+
+  # 形状：大圆角 + 1px 暖灰细边
+  "style/layout/border_width": 1
+  "style/layout/margin_x": 14
+  "style/layout/margin_y": 10
+  "style/layout/spacing": 10
+  "style/layout/candidate_spacing": 14
+  "style/layout/hilite_spacing": 4
+  "style/layout/hilite_padding": 4
+  "style/layout/corner_radius": 12
+  "style/layout/round_corner": 8
+  "style/layout/shadow_radius": 0
+
+  "preset_color_schemes/claude_light":
+    name: "Claude 浅色"
+    author: "rime-clawd"
+    back_color: 0xFFF5F9FA                  # 象牙白 #FAF9F5
+    border_color: 0xFFDCE1E3                # 暖灰细边 #E3E1DC
+    text_color: 0xFF5777D9                  # 光标、火花：Claude 橙 #D97757
+    hilited_text_color: 0xFF3A3D3D          # 正在输入的拼音 #3D3D3A
+    hilited_back_color: 0xFFF5F9FA          # 拼音不加底色
+    candidate_text_color: 0xFF131414        # 候选字 #141413
+    label_color: 0xFF969A9B                 # 序号
+    comment_text_color: 0xFF6C7273          # 注释 #73726C
+    hilited_candidate_back_color: 0xFF4264C9  # 选中：Claude 按钮橙 #C96442
+    hilited_candidate_text_color: 0xFFFFFFFF
+    hilited_label_color: 0xCCFFFFFF
+    hilited_comment_text_color: 0xD9FFFFFF
+
+  "preset_color_schemes/claude_dark":
+    name: "Claude 深色"
+    author: "rime-clawd"
+    back_color: 0xFF242626                  # 炭灰 #262624
+    border_color: 0xFF3C3E3F                # #3F3E3C
+    text_color: 0xFF5777D9                  # Claude 橙 #D97757
+    hilited_text_color: 0xFFDFE4E5          # #E5E4DF
+    hilited_back_color: 0xFF242626
+    candidate_text_color: 0xFFF5F9FA        # #FAF9F5
+    label_color: 0xFF8A8F91                 # #918F8A
+    comment_text_color: 0xFF9BA2A3          # #A3A29B
+    hilited_candidate_back_color: 0xFF5777D9  # #D97757
+    hilited_candidate_text_color: 0xFFFFFFFF
+    hilited_label_color: 0xCCFFFFFF
+    hilited_comment_text_color: 0xD9FFFFFF

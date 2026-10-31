@@ -55,9 +55,17 @@ local BLINK_EVERY = 7   -- 每 7 个键眨一次眼
 local TIRED_LEN = 24    -- 编码超过这么长，小螃蟹累了
 local LAG = 2           -- 前几个键 Clawd 先原地踏步，之后每键往右爬一步
 
--- companion 模式：把输入状态写给伴随程序 ~/Applications/Clawd.app，
+-- companion 模式：把输入状态写给伴随程序（macOS 上是 Clawd.app，Windows 上是 Clawd.exe），
 -- 由它把真正的像素 Clawd 画在候选框上沿（项目主页 https://github.com/yzysiu777/rime-clawd）
-local STATE_FILE = (os.getenv("HOME") or "") .. "/Library/Caches/ClawdCompanion/state"
+local function state_path()
+  if package.config:sub(1, 1) == "\\" then
+    -- Windows（小狼毫）：%LOCALAPPDATA%\ClawdCompanion\state
+    local base = os.getenv("LOCALAPPDATA") or os.getenv("APPDATA") or "."
+    return base .. "\\ClawdCompanion\\state"
+  end
+  return (os.getenv("HOME") or "") .. "/Library/Caches/ClawdCompanion/state"
+end
+local STATE_FILE = state_path()
 
 local function write_state(env, ctx, committed)
   if committed then env.commits = env.commits + 1 end

@@ -4,9 +4,11 @@
 
 # rime-clawd
 
-**让 Claude 的像素小螃蟹 Clawd 住进你的鼠须管输入法**
+**让 Claude 的像素小螃蟹 Clawd 住进你的 Rime 输入法**
 
-Claude 风格的鼠须管（Squirrel）候选框主题 + 一个蹲在候选框上、跟着光标爬的像素小螃蟹
+Claude 风格的候选框主题 + 一个蹲在候选框上、跟着光标爬的像素小螃蟹
+
+macOS（鼠须管 Squirrel）· Windows（小狼毫 Weasel，测试版）
 
 <img src="docs/demo-classic.gif" width="400" alt="经典 Clawd 演示">&nbsp;&nbsp;<img src="docs/demo-witch.gif" width="400" alt="万圣节女巫 Clawd 演示">
 
@@ -23,6 +25,7 @@ Claude 风格的鼠须管（Squirrel）候选框主题 + 一个蹲在候选框�
 - **一键安装**：主题和脚本都打包在 App 里，点一下「安装到鼠须管」就配置好。原配置自动备份，卸载时还原。
 - **开机自启、几乎不耗电**：只在你打字时动画，空闲时 CPU 占用为 0。
 - **Apple 芯片和 Intel Mac 都能用**（通用二进制，macOS 13+）。
+- **也有 Windows 版**（小狼毫，测试版）：单个 exe，用 Windows 自带的编译器就能编译，见 [windows/README.md](windows/README.md)。
 
 <p align="center"><img src="docs/panel.png" width="560" alt="真实候选框效果"></p>
 
@@ -41,6 +44,12 @@ Claude 风格的鼠须管（Squirrel）候选框主题 + 一个蹲在候选框�
 <p align="center"><img src="docs/sprites.png" width="640" alt="全部造型"></p>
 
 ## 安装
+
+### Windows（小狼毫）
+
+见 [windows/README.md](windows/README.md)。造型和 macOS 版逐像素一致，每次构建都会自动比对。
+
+### macOS（鼠须管）
 
 **前提**：已经装好 [鼠须管](https://rime.im)（1.0 以上，在 1.1.2 上测试）和 [雾凇拼音](https://github.com/iDvel/rime-ice)。
 

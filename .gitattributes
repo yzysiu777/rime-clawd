@@ -1,0 +1,3 @@
+# Windows 构建在 CI 上比对造型文本，保持 LF 不被转换
+windows/sprites.ref.txt -text
+*.bat text eol=crlf

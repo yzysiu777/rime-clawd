@@ -1,0 +1,50 @@
+name: Windows build
+
+on:
+  push:
+    paths:
+      - "windows/**"
+      - "Resources/rime/**"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Clawd.exe (built-in .NET Framework csc)
+        shell: cmd
+        run: windows\build.bat
+
+      - name: Check sprites are pixel-identical to the macOS version
+        shell: pwsh
+        run: |
+          windows\dist\Clawd.exe --dump-sprites windows\dist\sprites.win.txt | Out-Null
+          windows\dist\Clawd.exe --render-sheet windows\dist\sprites.png | Out-Null
+          $ref = (Get-Content -Raw windows\sprites.ref.txt) -replace "`r`n", "`n"
+          $win = (Get-Content -Raw windows\dist\sprites.win.txt) -replace "`r`n", "`n"
+          if ($ref -ne $win) {
+            Write-Host "::error::Windows sprites differ from macOS reference"
+            Compare-Object ($ref -split "`n") ($win -split "`n") | Select-Object -First 40 | Format-Table -AutoSize
+            exit 1
+          }
+          Write-Host "All 12 reference poses match the macOS version pixel for pixel."
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item windows\dist\Clawd.exe out\
+          Copy-Item windows\README.md out\使用说明.md
+          Compress-Archive -Path out\* -DestinationPath windows\dist\Clawd-windows.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-windows
+          path: |
+            windows/dist/Clawd.exe
+            windows/dist/Clawd-windows.zip
+            windows/dist/sprites.png
+            windows/dist/sprites.win.txt

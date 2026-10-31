@@ -1554,6 +1554,40 @@ func renderDemo(_ dir: String, witch: Bool) {
     }
 }
 
+/// 参考造型：Mac 版和 Windows 版必须逐像素一致（windows/sprites.ref.txt 由这里生成，CI 用它比对）
+func referencePoses() -> [(String, Sprite)] {
+    var r: [(String, Sprite)] = []
+    r.append(("stand", buildClawd(Pose())))
+    r.append(("walk1", buildClawd(Pose(look: 1, legs: 1))))
+    r.append(("walk2", buildClawd(Pose(look: 1, legs: 2))))
+    r.append(("blink", buildClawd(Pose(eyes: .closed))))
+    r.append(("breathe", buildClawd(Pose(look: -1, breathe: true))))
+    var surprised = buildClawd(Pose(look: -1, eyes: .wide)); addExclaim(&surprised, witch: false)
+    r.append(("surprised", surprised))
+    r.append(("cheer", buildClawd(Pose(eyes: .happy, armL: 1, armR: 1))))
+    r.append(("wave", buildClawd(Pose(eyes: .happy, armL: 1))))
+    r.append(("witch", buildWitch(Pose())))
+    r.append(("witch-right", buildWitch(Pose(look: 1)).mirrored(23)))
+    var ws = buildWitch(Pose(look: -1, eyes: .wide)); addExclaim(&ws, witch: true)
+    r.append(("witch-surprised", ws))
+    r.append(("witch-cheer", buildWitch(Pose(eyes: .happy, armL: 1, armR: 1))))
+    return r
+}
+
+func dumpSprites(_ path: String) {
+    var out = ""
+    for (name, sp) in referencePoses() {
+        let xs = sp.px.keys.map(\.x), ys = sp.px.keys.map(\.y)
+        let x0 = xs.min()!, x1 = xs.max()!, y0 = ys.min()!, y1 = ys.max()!
+        out += "\(name) \(x0) \(y0) \(x1 - x0 + 1) \(y1 - y0 + 1)\n"
+        for y in y0...y1 {
+            out += String((x0...x1).map { sp.px[P(x: $0, y: y)] ?? "." }) + "\n"
+        }
+    }
+    try? out.write(toFile: path, atomically: true, encoding: .utf8)
+}
+
+if let i = args.firstIndex(of: "--dump-sprites"), i + 1 < args.count { dumpSprites(args[i + 1]); exit(0) }
 if args.contains("--install-rime") { print(RimeInstaller.install()); exit(0) }
 if args.contains("--uninstall-rime") { print(RimeInstaller.uninstall()); exit(0) }
 if let i = args.firstIndex(of: "--render-demo"), i + 2 < args.count {
