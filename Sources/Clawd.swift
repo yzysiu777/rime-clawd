@@ -34,7 +34,18 @@ let PALETTE: [Character: CGColor] = [
     "L": rgb(0xF0DCA2),  // 草穗高光
     "B": rgb(0x7FC4F0),  // 汗珠
     "W": rgb(0xFFFFFF),
-    "A": rgb(0xD97757),  // Claude 橙：惊叹号
+    "A": rgb(0xD97757),  // Claude 橙：惊叹号、Zzz
+    "H": rgb(0xF0668C),  // 爱心
+    "h": rgb(0xD4476F),  // 爱心暗部
+    "C": rgb(0x79B4E3),  // 球王装：天蓝条纹
+    "g": rgb(0x2F8F5B),  // Siu 装：球衣绿边
+    "G": rgb(0x8E8E8E),  // 侧身装拖着的小灰棍
+    "R": rgb(0xC9483A),  // 圣诞帽
+    "r": rgb(0xA3382E),  // 圣诞帽暗部
+    "w": rgb(0xF6F1E7),  // 帽子的绒边、绒球
+    "v": rgb(0xD8D0C0),  // 绒边暗部
+    "N": rgb(0x6F83BD),  // 睡帽
+    "n": rgb(0x566A9E),  // 睡帽暗部
 ]
 
 // MARK: - 像素精灵（坐标单位：底层像素；Clawd 本体占 24×16）
@@ -76,6 +87,9 @@ struct Pose {
     var armL = 0, armR = 0  // 0 平举，1 举起
     var sit = false       // 骑扫帚时腿收短
     var breathe = false   // 呼吸：钳子往下沉 1 像素
+    var hideEyes = false  // 墨镜装：眼睛被镜片挡住
+    var wide = false      // 两腿叉开站（Siu 落地）
+    var back = false      // 背对镜头（Siu 空中转身）
 }
 
 /// 照 Claude 官方 Clawd 逐像素重画：身体 16×12，钳子各 4×4，眼睛 2×2，四条腿 2×4
@@ -83,9 +97,12 @@ func buildClawd(_ p: Pose) -> Sprite {
     var s = Sprite()
     s.rect(4, 0, 16, 12, "O")
     // 平举：身体两侧 4×4；举起：竖着伸到头顶上方，像在挥钳子
-    if p.armL == 1 { s.rect(0, -4, 3, 4, "O"); s.rect(1, 0, 3, 2, "O") } else { s.rect(0, p.breathe ? 5 : 4, 4, 4, "O") }
-    if p.armR == 1 { s.rect(21, -4, 3, 4, "O"); s.rect(20, 0, 3, 2, "O") } else { s.rect(20, p.breathe ? 5 : 4, 4, 4, "O") }
-    for x in [6 + p.look, 16 + p.look] {
+    // 2：双钳往下、往外一甩（Siu 落地的姿势）
+    if p.armL == 2 { s.rect(1, 6, 3, 2, "O"); s.rect(0, 8, 2, 4, "O") }
+    else if p.armL == 1 { s.rect(0, -4, 3, 4, "O"); s.rect(1, 0, 3, 2, "O") } else { s.rect(0, p.breathe ? 5 : 4, 4, 4, "O") }
+    if p.armR == 2 { s.rect(20, 6, 3, 2, "O"); s.rect(22, 8, 2, 4, "O") }
+    else if p.armR == 1 { s.rect(21, -4, 3, 4, "O"); s.rect(20, 0, 3, 2, "O") } else { s.rect(20, p.breathe ? 5 : 4, 4, 4, "O") }
+    for x in p.hideEyes ? [] : [6 + p.look, 16 + p.look] {
         switch p.eyes {
         case .open: s.rect(x, 2, 2, 2, "E")
         case .closed: s.rect(x, 3, 2, 1, "E")
@@ -95,7 +112,7 @@ func buildClawd(_ p: Pose) -> Sprite {
             s.rect(hx, 3, 1, 1, "E"); s.rect(hx + 1, 2, 1, 1, "E"); s.rect(hx + 2, 3, 1, 1, "E")
         }
     }
-    for (i, x) in [4, 8, 14, 18].enumerated() {
+    for (i, x) in (p.wide ? [3, 7, 15, 19] : [4, 8, 14, 18]).enumerated() {
         var h = 4
         if p.sit { h = 2 }
         else if p.legs == 1 && i % 2 == 0 { h = 2 }
@@ -163,12 +180,267 @@ func buildWitch(_ p: Pose) -> Sprite {
     return s
 }
 
+// MARK: - 皮肤
+
+enum Skin: String, CaseIterable {
+    case classic, witch, side, sleepy, santa, scholar, shades, striker, siu
+
+    var title: String {
+        switch self {
+        case .classic: return "经典"
+        case .witch: return "女巫"
+        case .side: return "侧身"
+        case .sleepy: return "瞌睡"
+        case .santa: return "圣诞"
+        case .scholar: return "学士"
+        case .shades: return "墨镜"
+        case .striker: return "球王"
+        case .siu: return "Siu"
+        }
+    }
+    /// 造型本身朝左，往右走时整体左右镜像
+    var mirrors: Bool { self == .witch || self == .side }
+    /// 骑着扫帚飘在空中：不迈腿、不呼吸
+    var floats: Bool { self == .witch }
+    /// 停手多少秒后打瞌睡（瞌睡装几乎一停就睡）
+    var dozeAfter: CGFloat { self == .sleepy ? 1.2 : 6 }
+    /// 睡着时身体往下沉几个像素（腿收起来趴下）
+    var sleepSink: Int {
+        switch self {
+        case .witch: return 0
+        case .side: return 3
+        default: return 2
+        }
+    }
+    /// 头顶（含帽子）最高到第几行
+    var headTop: Int {
+        switch self {
+        case .witch, .sleepy, .santa: return -10
+        case .scholar: return -7
+        case .side: return 2
+        default: return 0
+        }
+    }
+    /// 头顶「!」的位置
+    func exclaimAt(_ facing: Int) -> (Int, Int) {
+        switch self {
+        case .witch: return (27, -9)
+        case .side: return (11, -7)
+        case .sleepy, .santa: return (0, -10)
+        case .scholar: return (11, -15)
+        default: return (11, -9)
+        }
+    }
+    /// Zzz 从哪里冒出来、往哪边飘
+    func zzzAt(_ facing: Int) -> (x: Int, y: Int, dir: Int) {
+        switch self {
+        case .witch: return (27, -11, 1)
+        case .side: return facing > 0 ? (22, -2, 1) : (-1, -2, -1)
+        case .sleepy, .santa: return (25, -6, 1)
+        case .scholar: return (24, -8, 1)
+        default: return (21, -4, 1)
+        }
+    }
+    func sweatX(_ facing: Int) -> Int {
+        switch self {
+        case .witch: return facing > 0 ? -3 : 25
+        case .side: return facing > 0 ? 1 : 22
+        default: return 25
+        }
+    }
+}
+
+func recolor(_ rows: [String], _ map: [Character: Character]) -> [String] {
+    rows.map { String($0.map { map[$0] ?? $0 }) }
+}
+
+// 圣诞帽：帽尖往右耷拉，挂一个绒球；原点 (0, -10)
+let SANTA_HAT = [
+    "........RRRRRRR............",
+    "......RRRRRRRRRRR..........",
+    ".....RRRRRRRRRRRRRR........",
+    "....RRRRRRRRRRRRrRRRR......",
+    "....RRRRRRRRRRRRRrrRRR.....",
+    "...RRRRRRRRRRRRRRRr.RRR....",
+    "...RRRRRRRRRRRRRRRRr.rRR...",
+    "...RRRRRRRRRRRRRRRRR..rr...",
+    "..wwwwwwwwwwwwwwwwwwww.www.",
+    "..vwwwwwwwwwwwwwwwwwwvwwwww",
+    ".......................vwv.",
+]
+// 睡帽：同一顶帽子，换成夜空蓝
+let NIGHT_CAP = recolor(SANTA_HAT, ["R": "N", "r": "n"])
+
+// 学士帽：菱形帽板 + 垂下来的流苏；原点 (1, -7)
+let MORTARBOARD = [
+    ".........kKKK.........",
+    "......kkKKKKKKKK......",
+    "...kkKKKKKKKKKKKKKK...",
+    "kkKKKKKKKKKKKKKKKKKKKK",
+    "...KKKKKKKKKKKKKKKKY..",
+    "......KKKKKKKKKK...Y..",
+    "....KKKKKKKKKKKKKK.Y..",
+    "...................Y..",
+    "..................YLY.",
+    "..................YLY.",
+]
+
+/// 墨镜装：眼睛藏在镜片后面；吓一跳时墨镜滑下来，露出瞪大的眼睛
+func buildShades(_ p: Pose) -> Sprite {
+    var q = p
+    q.hideEyes = true
+    var s = buildClawd(q)
+    let drop = p.eyes == .wide ? 2 : 0
+    if drop > 0 { for x in [6 + p.look, 16 + p.look] { s.rect(x, 1, 2, 2, "E") } }
+    let y = 2 + drop
+    s.rect(4, y, 16, 1, "K")                               // 镜架
+    for x in [5, 13] {
+        s.rect(x, y, 6, 2, "K"); s.rect(x + 1, y + 2, 4, 1, "K")   // 镜片，下角收圆
+        s.rect(x + 1 + max(0, p.look), y + 1, 2, 1, "k")           // 反光
+    }
+    return s
+}
+
+/// 侧身装：四分之三侧面的 Clawd，前钳撑地，拖着一根小灰棍（照你给的截图重画）。造型朝左。
+func buildSide(_ p: Pose) -> Sprite {
+    var s = Sprite()
+    let lie = p.sit                                         // 睡觉：收起腿趴下
+    let cheer = p.armL == 1 || p.armR == 1
+    // 小灰棍：平时拖在身前；欢呼时举起来；趴下时平放
+    if lie {
+        s.rect(-8, 12, 8, 1, "G")
+    } else if cheer {
+        let k = p.armL == 1 && p.armR == 1 ? 0 : (p.armL == 1 ? 0 : 1)
+        for i in 0..<6 { s.rect(-1 - i, 5 - i + k * (i / 2), 1, 2, "G") }
+    } else {
+        for i in 0..<5 { s.rect(-7 + i, 10 + i, 1, 2, "G") }
+        s.rect(-3, 15, 3, 1, "G")
+    }
+    s.rect(4, 2, 12, 11, "O")                               // 正面
+    s.rect(16, 2, 4, 11, "o")                               // 侧面（暗一档）
+    s.rect(0, 7, 4, lie ? 6 : 9, "O")                       // 前钳
+    s.rect(0, 7, 4, 1, "o"); s.rect(0, 8, 1, 3, "o")
+    let shift = p.look > 0 ? 1 : 0                          // 回头看时眼睛往后挪一格
+    for x in [4 + shift, 12 + shift] {
+        switch p.eyes {
+        case .open: s.rect(x, 5, 2, 2, "E")
+        case .closed: s.rect(x, 6, 2, 1, "E")
+        case .wide: s.rect(x, 4, 2, 3, "E")
+        case .happy: s.rect(x, 6, 1, 1, "E"); s.rect(x + 1, 5, 1, 1, "E"); s.rect(x + 2, 6, 1, 1, "E")
+        }
+    }
+    if !lie {
+        for (i, x) in [4, 8, 14, 18].enumerated() {
+            let c: Character = i == 3 ? "o" : "O"
+            let lifted = (p.legs == 1 && i % 2 == 0) || (p.legs == 2 && i % 2 == 1)
+            s.rect(x, 13, 2, 1, c)
+            if lifted { continue }
+            s.rect(x, 14, 3, 1, c)                           // 斜着踩出去的小脚
+            s.rect(x + 1, 15, 2, 1, c)
+        }
+    }
+    return s
+}
+
+func buildSkin(_ skin: Skin, _ p: Pose) -> Sprite {
+    switch skin {
+    case .classic: return buildClawd(p)
+    case .witch: return buildWitch(p)
+    case .side: return buildSide(p)
+    case .shades: return buildShades(p)
+    case .sleepy: var s = buildClawd(p); s.stamp(NIGHT_CAP, 0, -10); return s
+    case .santa: var s = buildClawd(p); s.stamp(SANTA_HAT, 0, -10); return s
+    case .scholar: var s = buildClawd(p); s.stamp(MORTARBOARD, 1, -7); return s
+    case .striker:                       // 天蓝白竖条球衣；足球由 addBall 另外画
+        var s = buildClawd(p)
+        for y in 5...11 { for x in 4...19 { s.px[P(x: x, y: y)] = [3, 4, 7, 8, 11, 12].contains(x - 4) ? "w" : "C" } }
+        return s
+    case .siu:                           // 红球衣、绿下摆；转身时亮出背后的 7 号
+        var q = p
+        if p.back { q.hideEyes = true }
+        var s = buildClawd(q)
+        s.rect(4, 5, 16, 6, "R"); s.rect(4, 11, 16, 1, "g")
+        if p.back { s.stamp(["wwww", "...w", "..w.", ".w..", ".w.."], 10, 5) } else { s.rect(11, 5, 2, 1, "w") }
+        return s
+    }
+}
+
+// 足球
+let BALL = [".www.", "wwKww", "wKKKw", "vwKwv", ".vvv."]
+
+/// 球王装的足球：走路时带球，停下来用钳子颠球，睡着了球停在脚边。lift 是身体被抬高的像素数（球不跟着身体跳）
+func addBall(_ s: inout Sprite, clock: CGFloat, moving: Bool, facing: Int, asleep: Bool, lift: Int) {
+    var x = facing > 0 ? 25 : -6, y = 11
+    if moving {
+        let b = [0, 1, 3, 1][Int(clock / 0.09) % 4]
+        x += facing > 0 ? b : -b
+        if b == 3 { y -= 1 }
+    } else if !asleep {
+        let u = (clock / 0.62).truncatingRemainder(dividingBy: 1)
+        x = facing > 0 ? 20 : -1
+        y = -1 - Int((4 * u * (1 - u) * 8).rounded()) - lift
+    }
+    s.stamp(BALL, x, y + lift)
+}
+
+/// Siu 落地时头顶蹦出来的「SIU!」
+func addSiu(_ s: inout Sprite) {
+    s.stamp(["AAA.A.A.A.A", "A...A.A.A.A", "AAA.A.A.A.A", "..A.A.A.A..", "AAA.A.AAA.A"], 7, -9)
+}
+
+func addExclaim(_ s: inout Sprite, at pos: (Int, Int)) {
+    s.rect(pos.0, pos.1, 2, 4, "A")
+    s.rect(pos.0, pos.1 + 5, 2, 2, "A")
+}
+
+// 睡着时飘起来的 Zzz：三个 Z 一个接一个，越飘越大
+let ZZZ: [[String]] = [
+    ["ZZZ", ".Z.", "ZZZ"],
+    ["ZZZZ", "..Z.", ".Z..", "ZZZZ"],
+    ["ZZZZZ", "...Z.", "..Z..", ".Z...", "ZZZZZ"],
+]
+
+func addZzz(_ s: inout Sprite, clock: CGFloat, at o: (x: Int, y: Int, dir: Int)) {
+    let period: CGFloat = 2.7
+    for i in 0..<3 {
+        let u = ((clock / period) + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
+        let glyph = recolor(ZZZ[min(2, Int(u * 3))], ["Z": "A"])
+        let w = glyph[0].count
+        let rise = Int((u * 15).rounded()), drift = Int((u * 11).rounded())
+        let x = o.dir > 0 ? o.x + drift : o.x - drift - (w - 1)
+        s.stamp(glyph, x, o.y - rise - (glyph.count - 1))
+    }
+}
+
 // MARK: - 火花粒子（Claude 的 ✻ 风格小星星）
 
 struct Spark {
     var x: CGFloat, y: CGFloat, vx: CGFloat, vy: CGFloat
     var age: CGFloat = 0, life: CGFloat
     var color: Character
+    var kind = 0               // 0 火花，1 小爱心，2 大爱心，3 足球
+    var gravity: CGFloat = 18
+}
+
+let HEART_S = [".X.X.", "XXXXX", ".XXX.", "..X.."]
+let HEART_B = [".XX.XX.", "XXXXXXX", "XXXXXXX", ".XXXXX.", "..XXX..", "...X..."]
+// 打出「猪咪」时头顶那颗一跳一跳的大爱心
+let HEART_M = [".HH.HH.", "HwHHHHH", "HHHHHHH", ".HHHHh.", "..HHh..", "...h..."]
+let HEART_L = [".HH...HH.", "HHHH.HHHH", "HwwHHHHHH", "HwHHHHHHH", ".HHHHHHh.", "..HHHHh..", "...HHh...", "....h...."]
+
+/// 一个粒子占哪些格子（相对粒子中心）
+func sparkCells(_ s: Spark) -> [(CGFloat, CGFloat)] {
+    if s.kind > 0 {
+        let g = s.kind == 2 ? HEART_B : HEART_S
+        let ox = CGFloat(g[0].count / 2), oy = CGFloat(g.count / 2)
+        var out: [(CGFloat, CGFloat)] = []
+        for (j, row) in g.enumerated() { for (i, ch) in row.enumerated() where ch != "." { out.append((CGFloat(i) - ox, CGFloat(j) - oy)) } }
+        return out
+    }
+    let k = s.age / s.life
+    if k < 0.45 { return [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)] }      // ✚ 形
+    if k < 0.75 { return [(0, 0), (-1, -1), (1, 1), (-1, 1), (1, -1)] }    // ✕ 形
+    return [(0, 0)]
 }
 
 // MARK: - 画布
@@ -177,9 +449,9 @@ final class SpriteView: NSView {
     var sprite = Sprite()
     var sparks: [Spark] = []
     var unit: CGFloat = 1.5
-    let anchor = P(x: 20, y: 32)   // Clawd (0,0) 在画布里的位置
-    static let canvasW = 64, canvasH = 54
-    static let feetRow = 32 + 16   // 脚底所在的画布行
+    let anchor = P(x: 44, y: 64)   // Clawd (0,0) 在画布里的位置
+    static let canvasW = 112, canvasH = 86
+    static let feetRow = 64 + 16   // 脚底所在的画布行
 
     override var isFlipped: Bool { true }
 
@@ -204,13 +476,17 @@ final class SpriteView: NSView {
             let base = PALETTE[s.color] ?? rgb(0xD97757)
             ctx.setFillColor(base.copy(alpha: a) ?? base)
             let cx = s.x.rounded(), cy = s.y.rounded()
-            if k < 0.45 {        // ✚ 形
-                ctx.fill([cell(cx, cy), cell(cx - 1, cy), cell(cx + 1, cy), cell(cx, cy - 1), cell(cx, cy + 1)])
-            } else if k < 0.75 { // ✕ 形
-                ctx.fill([cell(cx, cy), cell(cx - 1, cy - 1), cell(cx + 1, cy + 1), cell(cx - 1, cy + 1), cell(cx + 1, cy - 1)])
-            } else {
-                ctx.fill(cell(cx, cy))
+            if s.kind == 3 {     // 踢出去的足球
+                for (j, row) in BALL.enumerated() {
+                    for (i, ch) in row.enumerated() where ch != "." {
+                        guard let c = PALETTE[ch] else { continue }
+                        ctx.setFillColor(c.copy(alpha: a) ?? c)
+                        ctx.fill(cell(cx + CGFloat(i), cy + CGFloat(j)))
+                    }
+                }
+                continue
             }
+            ctx.fill(sparkCells(s).map { cell(cx + $0.0, cy + $0.1) })
         }
     }
 }
@@ -223,6 +499,7 @@ struct RimeState: Equatable {
     var commits = 0
     var input = ""
     var preCaret = ""
+    var commitText = ""   // 最近一次上屏的文字（旧版 clawd.lua 不写这一栏）
 }
 
 let STATE_DIR = NSHomeDirectory() + "/Library/Caches/ClawdCompanion"
@@ -232,7 +509,8 @@ func parseState(_ text: String) -> RimeState? {
     guard let line = text.split(separator: "\n").first else { return nil }
     let f = line.components(separatedBy: "\t")
     guard f.count >= 7, f[1] == "v1" else { return nil }
-    return RimeState(sid: f[2], composing: f[3] == "1", commits: Int(f[4]) ?? 0, input: f[5], preCaret: f[6])
+    return RimeState(sid: f[2], composing: f[3] == "1", commits: Int(f[4]) ?? 0, input: f[5], preCaret: f[6],
+                     commitText: f.count > 7 ? f[7] : "")
 }
 
 final class StateWatcher {
@@ -357,17 +635,16 @@ struct SquirrelMetrics {
 
 // MARK: - 偏好设置
 
-enum Costume: String { case auto, classic, witch }
-
 final class Prefs {
     static let d = UserDefaults.standard
     static var enabled: Bool {
         get { d.object(forKey: "enabled") as? Bool ?? true }
         set { d.set(newValue, forKey: "enabled") }
     }
-    static var costume: Costume {
-        get { Costume(rawValue: d.string(forKey: "costume") ?? "") ?? .auto }
-        set { d.set(newValue.rawValue, forKey: "costume") }
+    /// "auto"（每天换一套）或某个皮肤的名字
+    static var costume: String {
+        get { let v = d.string(forKey: "costume") ?? "auto"; return Skin(rawValue: v) != nil ? v : "auto" }
+        set { d.set(newValue, forKey: "costume") }
     }
     static var size: String {   // s / m / l
         get { d.string(forKey: "size") ?? "m" }
@@ -391,20 +668,27 @@ final class Prefs {
         set { d.set(newValue, forKey: "showIcon") }
     }
 
-    static var isHalloweenSeason: Bool {
-        let c = Calendar.current.dateComponents([.month, .day], from: Date())
-        return (c.month == 10 && (c.day ?? 0) >= 24) || (c.month == 11 && (c.day ?? 0) <= 2)
+    static var forced: Skin?   // 录制演示时用
+
+    /// 「自动」：全部皮肤每天换一套，轮着来；万圣节固定女巫，平安夜和圣诞节固定圣诞帽
+    static func autoSkin(on date: Date = Date()) -> Skin {
+        let cal = Calendar.current
+        let c = cal.dateComponents([.month, .day], from: date)
+        if c.month == 10 && c.day == 31 { return .witch }
+        if c.month == 12 && (c.day == 24 || c.day == 25) { return .santa }
+        let days = cal.ordinality(of: .day, in: .era, for: date) ?? 0
+        return Skin.allCases[days % Skin.allCases.count]
     }
 
-    /// 万圣节前后一周自动换上女巫装
-    static var forced: Costume?   // 录制演示时用
-
-    static var isWitch: Bool {
-        switch forced ?? costume {
-        case .witch: return true
-        case .classic: return false
-        case .auto: return isHalloweenSeason
-        }
+    private static var autoCache: (at: CFAbsoluteTime, skin: Skin)?
+    static var skin: Skin {
+        if let f = forced { return f }
+        if let s = Skin(rawValue: costume) { return s }
+        let now = CFAbsoluteTimeGetCurrent()
+        if let c = autoCache, now - c.at < 20 { return c.skin }
+        let s = autoSkin()
+        autoCache = (now, s)
+        return s
     }
 }
 
@@ -576,6 +860,10 @@ final class ClawdController {
     var hopT: CGFloat? = nil          // 退格时往后弹一下
     var cheerSparkAt: CGFloat = 0, trailAt: CGFloat = 0
     var lastKeyAt: CGFloat = 0
+    var wasAsleep = false, startleUntil: CGFloat = 0
+    var loveUntil: CGFloat = 0, loveSparkAt: CGFloat = 0, loveBurstAt: CGFloat = 0
+    var landUntil: CGFloat = 0     // Siu 落地定格
+    var kickUntil: CGFloat = 0     // 球王把球踢出去了，球还没回来
 
     let offscreen: Bool
 
@@ -627,7 +915,14 @@ final class ClawdController {
         }
         if st.sid == old.sid && st.commits > old.commits && showing {
             jumpT = 0
-            burst(count: 8)
+            // 上屏的是「猪咪」→ 放爱心烟花（旧版脚本不报上屏文字，就按拼音判断）
+            let lovely = st.commitText.isEmpty ? old.input.lowercased().contains("zhumi") : st.commitText.contains("猪咪")
+            if lovely { loveUntil = clock + 1.9; loveBurstAt = 0 } else { burst(count: 8) }
+            if Prefs.skin == .striker && !lovely {           // 球王：上屏就是一脚射门
+                kickUntil = clock + 1.1
+                view.sparks.append(Spark(x: facing > 0 ? 26 : -7, y: 10, vx: CGFloat(facing) * 85, vy: -48,
+                                         life: 1.1, color: "w", kind: 3, gravity: 80))
+            }
         }
         let n = st.input.count
         if st.composing {
@@ -664,6 +959,16 @@ final class ClawdController {
         }
     }
 
+    func loveBurst(count: Int) {
+        for i in 0..<count {
+            let a = CGFloat(i) / CGFloat(count) * .pi * 2 + CGFloat.random(in: -0.25...0.25)
+            let sp = CGFloat.random(in: 26...62)
+            view.sparks.append(Spark(x: 12, y: 0, vx: cos(a) * sp, vy: sin(a) * sp - 16,
+                                     life: CGFloat.random(in: 0.9...1.5), color: i % 2 == 0 ? "H" : "h",
+                                     kind: i % 3 == 0 ? 2 : 1, gravity: 26))
+        }
+    }
+
     func tick(fixedDT: CGFloat? = nil) {
         let now = CACurrentMediaTime()
         let dt = fixedDT ?? CGFloat(min(0.05, now - lastTick))
@@ -680,13 +985,14 @@ final class ClawdController {
                 log("panel-none", Prefs.enabled ? "在输入，但没找到鼠须管候选框窗口" : "在输入，但「显示 Clawd」是关着的")
             }
         }
-        let witch = Prefs.isWitch
+        let skin = Prefs.skin
 
         if want, let panel {
             lastPanel = panel
             if !showing {
                 showing = true
                 dropIn = 6
+                lastKeyAt = clock
                 nextBlink = clock + 0.8          // 一出场先眨个眼
                 nextLook = clock + 1.6
                 if !offscreen { window.orderFrontRegardless() }
@@ -700,7 +1006,7 @@ final class ClawdController {
             alpha = min(1, alpha + dt / 0.15)
         } else {
             // 上屏跳跃时先跳完再淡出
-            if jumpT == nil { alpha = max(0, alpha - dt / 0.2) }
+            if jumpT == nil && clock >= loveUntil && clock >= landUntil { alpha = max(0, alpha - dt / 0.2) }
             if alpha == 0 && showing && jumpT == nil {
                 showing = false
                 hasX = false
@@ -723,7 +1029,7 @@ final class ClawdController {
 
         // 表情
         var pose = Pose()
-        pose.legs = witch ? 0 : legPhase
+        pose.legs = skin.floats ? 0 : legPhase
         let idle = !moving && clock - lastKeyAt > 0.6     // 停下来挑候选的时候
         if moving {
             pose.look = facing
@@ -734,7 +1040,7 @@ final class ClawdController {
                 nextLook = clock + CGFloat.random(in: 1.0...2.2)
             }
             if clock < lookUntil { pose.look = lookDir }
-            pose.breathe = !witch && Int(clock / 0.55) % 2 == 1   // 呼吸：钳子一沉一浮
+            pose.breathe = !skin.floats && Int(clock / 0.55) % 2 == 1   // 呼吸：钳子一沉一浮
         }
         if clock > nextBlink {
             blinkUntil = clock + 0.13
@@ -757,17 +1063,57 @@ final class ClawdController {
             }
         }
 
-        // 上屏：跳一下、举双钳
         var lift: CGFloat = 0
+
+        // 打出「猪咪」：Clawd 蹦蹦跳跳，四周不停冒爱心
+        let love = state.composing && lower.contains("zhumi")
+        if love {
+            pose.eyes = .happy
+            let phase = Int(clock / 0.12) % 2
+            pose.armL = phase; pose.armR = 1 - phase
+            lift += (abs(sin(clock * 9)) * 3).rounded()
+            if clock > loveSparkAt {
+                loveSparkAt = clock + 0.06
+                view.sparks.append(Spark(x: CGFloat.random(in: -38...62), y: CGFloat.random(in: -6...14),
+                                         vx: CGFloat.random(in: -5...5), vy: CGFloat.random(in: -34 ... -18),
+                                         life: CGFloat.random(in: 0.9...1.5), color: Bool.random() ? "H" : "h",
+                                         kind: Bool.random() ? 1 : 2, gravity: -4))
+            }
+        }
+        if clock < loveUntil && clock > loveBurstAt {       // 「猪咪」上屏后：接连放几轮爱心烟花
+            loveBurstAt = clock + 0.45
+            loveBurst(count: 22)
+        }
+
+        // 打瞌睡：停手一会儿就睡着（瞌睡装几乎一停就睡），一按键就醒
+        let asleep = showing && want && !moving && !cheering && !love && jumpT == nil
+            && clock >= backUntil && clock >= landUntil && clock - lastKeyAt > skin.dozeAfter
+        if asleep {
+            pose = Pose(eyes: .closed, sit: true, breathe: !skin.floats && Int(clock / 0.9) % 2 == 1)
+            lift -= CGFloat(skin.sleepSink)
+        } else if wasAsleep && skin == .sleepy && jumpT == nil {
+            hopT = 0; startleUntil = clock + 0.35             // 瞌睡装被吵醒：一激灵
+        }
+        wasAsleep = asleep
+        if clock < startleUntil && jumpT == nil && !asleep { pose.eyes = .wide }
+
+        // 上屏：跳一下、举双钳
+        let siu = skin == .siu && clock >= loveUntil
         if let t = jumpT {
-            let T: CGFloat = 0.42
+            let T: CGFloat = siu ? 0.56 : 0.42
             if t < T {
-                lift += 10 * 4 * (t / T) * (1 - t / T)
+                lift += (clock < loveUntil ? 14 : siu ? 16 : 10) * 4 * (t / T) * (1 - t / T)
                 pose.armL = 1; pose.armR = 1; pose.eyes = .happy; pose.legs = 0
+                if siu && t > T * 0.3 && t < T * 0.8 { pose.back = true }   // 空中转身，亮出背后的 7 号
                 jumpT = t + dt
             } else {
-                jumpT = nil
+                jumpT = clock < loveUntil - 0.3 ? 0 : nil   // 爱心烟花期间连着跳
+                if siu { landUntil = clock + 0.8; burst(count: 10) }
             }
+        }
+        if clock < landUntil {                              // Siu 落地：两腿叉开，双钳往下一甩
+            pose = Pose(eyes: .happy, armL: 2, armR: 2)
+            pose.wide = true
         }
         if let t = hopT {                                   // 退格：吓得往上一弹
             let T: CGFloat = 0.22
@@ -778,11 +1124,13 @@ final class ClawdController {
             dropIn = max(0, dropIn - dt * 40)
         }
 
-        var sprite: Sprite
-        if witch {
+        let flip = skin.mirrors && facing > 0               // 朝左画的造型，往右走时镜像
+        var spritePose = pose
+        if flip { spritePose.look = -pose.look }
+        var sprite = buildSkin(skin, spritePose)
+        if flip { sprite = sprite.mirrored(23) }
+        if skin.floats {
             lift += 5 + (1.5 * sin(clock * 3.2)).rounded()
-            sprite = buildWitch(pose)
-            if facing > 0 { sprite = sprite.mirrored(23) }
             if moving && clock > trailAt {   // 草穗后面拖出一串小火花
                 trailAt = clock + 0.05
                 let tailX: CGFloat = facing > 0 ? -12 : 36
@@ -790,16 +1138,23 @@ final class ClawdController {
                                          vx: CGFloat(-facing) * CGFloat.random(in: 8...16), vy: CGFloat.random(in: -4...4),
                                          life: 0.5, color: ["L", "Y", "O"].randomElement()!))
             }
-        } else {
-            sprite = buildClawd(pose)
         }
 
-        if clock < backUntil { addExclaim(&sprite, witch: witch) }
+        if clock < backUntil { addExclaim(&sprite, at: skin.exclaimAt(facing)) }
+        if asleep { addZzz(&sprite, clock: clock, at: skin.zzzAt(facing)) }
+        if clock < landUntil { addSiu(&sprite) }
+        if skin == .striker && clock >= kickUntil {
+            addBall(&sprite, clock: clock, moving: moving, facing: facing, asleep: asleep, lift: Int(lift.rounded()))
+        }
+        if love || clock < loveUntil {                      // 头顶一颗一跳一跳的大爱心
+            let big = Int(clock / 0.22) % 2 == 0
+            sprite.stamp(big ? HEART_L : HEART_M, big ? 8 : 9, skin.headTop - (big ? 13 : 12))
+        }
 
         // 编码很长：冒汗
-        if state.composing && state.input.count >= 16 && !cheering {
+        if state.composing && state.input.count >= 16 && !cheering && !asleep && !love {
             let k = Int(clock / 0.12) % 6
-            sprite.rect(witch && facing > 0 ? -3 : 25, -2 + k, 1, 2, "B")
+            sprite.rect(skin.sweatX(facing), -2 + k, 1, 2, "B")
         }
 
         let liftPx = Int(lift.rounded())
@@ -813,7 +1168,7 @@ final class ClawdController {
             var s = s
             s.age += dt
             s.x += s.vx * dt; s.y += s.vy * dt
-            s.vy += 18 * dt
+            s.vy += s.gravity * dt
             return s.age < s.life ? s : nil
         }
 
@@ -907,6 +1262,9 @@ final class Demo {
         for s in ["c", "cl", "cla", "clau", "claud", "claude"] { steps.append((t, s, ["Claude", "Claude Code"], false)); t += 0.2 }
         t += 1.8
         steps.append((t, "claude", ["Claude", "Claude Code"], true)); t += 1.2
+        for s in ["z", "zh", "zhu", "zhu m", "zhu mi"] { steps.append((t, s, ["猪咪", "竹米", "主"], false)); t += 0.2 }
+        t += 2.0
+        steps.append((t, "zhu mi", ["猪咪", "竹米", "主"], true)); t += 2.6
         steps.append((t, "", [], false))
     }
 
@@ -941,8 +1299,8 @@ final class Demo {
 
 // MARK: - 菜单栏与开机自启动
 
-func clawdImage(unit: CGFloat, witch: Bool = false, padding: CGFloat = 0) -> NSImage {
-    let sprite = witch ? buildWitch(Pose()) : buildClawd(Pose())
+func clawdImage(unit: CGFloat, skin: Skin = .classic, padding: CGFloat = 0) -> NSImage {
+    let sprite = buildSkin(skin, Pose())
     let xs = sprite.px.keys.map(\.x), ys = sprite.px.keys.map(\.y)
     let minX = xs.min()!, maxX = xs.max()!, minY = ys.min()!, maxY = ys.max()!
     let w = CGFloat(maxX - minX + 1) * unit + padding * 2, h = CGFloat(maxY - minY + 1) * unit + padding * 2
@@ -1008,6 +1366,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
             self?.ctl.applySize()
         }
+        // 过了零点：「自动」换成今天的皮肤，菜单和设置窗口跟着刷新
+        NotificationCenter.default.addObserver(forName: .NSCalendarDayChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.prefsChanged()
+        }
         // 装好后第一次启动时，主动把设置窗口弹出来
         if !UserDefaults.standard.bool(forKey: "didShowSettings2") || CommandLine.arguments.contains("--settings") {
             UserDefaults.standard.set(true, forKey: "didShowSettings2")
@@ -1047,7 +1409,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func rebuildMenu() {
         guard let item else { return }
         let m = NSMenu()
-        let title = NSMenuItem(title: Prefs.isWitch ? "Clawd 伴随 · 万圣节快乐 🎃" : "Clawd 伴随", action: nil, keyEquivalent: "")
+        let title = NSMenuItem(title: Prefs.costume == "auto" ? "Clawd 伴随 · 今天是「\(Prefs.skin.title)」" : "Clawd 伴随", action: nil, keyEquivalent: "")
         title.isEnabled = false
         m.addItem(title)
         m.addItem(.separator())
@@ -1063,19 +1425,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let punct = NSMenuItem(title: "英文标点", action: #selector(togglePunct), keyEquivalent: "")
         punct.state = Prefs.englishPunct ? .on : .off
-        punct.toolTip = "勾上：中文模式下输出 , . ? 等英文标点；取消：输出 ，。？ 等中文标点。⌃⇧3 也能临时切换。"
+        punct.toolTip = "勾上：中文模式下输出 , . ? 等英文标点（按 \\ 仍然是顿号）；取消：输出 ，。？ 等中文标点。⌃⇧3 也能临时切换。"
         punct.target = self
         m.addItem(punct)
         m.addItem(.separator())
 
         let costume = NSMenuItem(title: "装扮", action: nil, keyEquivalent: "")
         let cm = NSMenu()
-        for (c, name) in [(Costume.auto, "自动（节日换装）"), (.classic, "经典"), (.witch, "女巫 🧹")] {
+        for (c, name) in [("auto", "自动（每天换一套）")] + Skin.allCases.map({ ($0.rawValue, $0.title) }) {
             let it = NSMenuItem(title: name, action: #selector(pickCostume(_:)), keyEquivalent: "")
-            it.representedObject = c.rawValue
+            it.representedObject = c
             it.state = Prefs.costume == c ? .on : .off
+            it.image = clawdImage(unit: 0.5, skin: Skin(rawValue: c) ?? Prefs.autoSkin())
             it.target = self
             cm.addItem(it)
+            if c == "auto" { cm.addItem(.separator()) }
         }
         costume.submenu = cm
         m.addItem(costume)
@@ -1116,7 +1480,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleShow() { Prefs.enabled.toggle(); prefsChanged() }
     @objc func togglePunct() { Prefs.englishPunct.toggle(); prefsChanged() }
     @objc func pickCostume(_ s: NSMenuItem) {
-        Prefs.costume = Costume(rawValue: s.representedObject as? String ?? "auto") ?? .auto
+        Prefs.costume = s.representedObject as? String ?? "auto"
         prefsChanged()
     }
     @objc func pickSize(_ s: NSMenuItem) {
@@ -1181,9 +1545,10 @@ final class SettingsModel: ObservableObject {
     @Published var showIcon = Prefs.showIcon {
         didSet { if showIcon != Prefs.showIcon { Prefs.showIcon = showIcon; app?.updateStatusItem() } }
     }
-    @Published var costume = Prefs.costume.rawValue {
-        didSet { if costume != Prefs.costume.rawValue { Prefs.costume = Costume(rawValue: costume) ?? .auto; app?.prefsChanged() } }
+    @Published var costume = Prefs.costume {
+        didSet { if costume != Prefs.costume { Prefs.costume = costume; app?.prefsChanged() } }
     }
+    @Published var today = Prefs.autoSkin()
     @Published var size = Prefs.size {
         didSet { if size != Prefs.size { Prefs.size = size; app?.ctl.applySize(); app?.prefsChanged() } }
     }
@@ -1198,7 +1563,7 @@ final class SettingsModel: ObservableObject {
 
     func refresh() {
         enabled = Prefs.enabled; showIcon = Prefs.showIcon; englishPunct = Prefs.englishPunct
-        costume = Prefs.costume.rawValue; size = Prefs.size
+        costume = Prefs.costume; size = Prefs.size; today = Prefs.autoSkin()
         login = LoginItem.isOn
         rimeStatus = RimeInstaller.statusText
         rimeInstalled = RimeInstaller.isInstalled
@@ -1213,7 +1578,7 @@ final class SettingsModel: ObservableObject {
 
 /// 设置窗口顶部的动画预览：Clawd 在一个小输入框上循环表演全部动作
 final class PreviewSpriteView: NSView {
-    var witch = false
+    var skin = Skin.classic
     private var timer: Timer?
     private var t: CGFloat = 0
     private var sparks: [Spark] = []
@@ -1267,10 +1632,10 @@ final class PreviewSpriteView: NSView {
         (dark ? NSColor(white: 0.87, alpha: 0.15) : NSColor(white: 0.12, alpha: 0.15)).setStroke(); path.lineWidth = 1; path.stroke()
 
         let unit: CGFloat = 3
-        let L: CGFloat = 8.4
+        let L: CGFloat = 9.8
         let k = t.truncatingRemainder(dividingBy: L)
         var pose = Pose()
-        var xOff: CGFloat = 0, lift: CGFloat = 0, facing = 1, exclaim = false, moving = false
+        var xOff: CGFloat = 0, lift: CGFloat = 0, facing = 1, exclaim = false, moving = false, asleep = false
         let seg: Int
         if k < 2.4 {                       // 横着爬来爬去
             seg = 0
@@ -1301,10 +1666,11 @@ final class PreviewSpriteView: NSView {
             pose.eyes = .wide; pose.look = -1; exclaim = true
             let tt = (k - 5.8) / 0.22
             if tt < 1 { lift = 4 * 4 * tt * (1 - tt) }
-        } else {                           // 发呆
+        } else {                           // 打瞌睡
             seg = 5
-            pose.breathe = Int(k / 0.5) % 2 == 1
-            if k > 7.6 && k < 7.74 { pose.eyes = .closed }
+            asleep = true
+            pose = Pose(eyes: .closed, sit: true, breathe: !skin.floats && Int(k / 0.9) % 2 == 1)
+            lift = -CGFloat(skin.sleepSink)
         }
         if seg == 3 && lastSeg != 3 {
             for i in 0..<8 {
@@ -1314,22 +1680,37 @@ final class PreviewSpriteView: NSView {
         }
         lastSeg = seg
 
-        var sprite: Sprite
-        if witch {
-            pose.legs = 0
+        var siuText = false
+        if skin == .siu {
+            if seg == 3 {
+                let tt = (k - 5.3) / 0.42
+                lift *= 1.6
+                if tt > 0.3 && tt < 0.8 { pose.back = true }
+            } else if seg == 4 {
+                pose = Pose(eyes: .happy, armL: 2, armR: 2); pose.wide = true
+                exclaim = false; lift = 0; siuText = true
+            }
+        }
+        let flip = skin.mirrors && facing > 0
+        if skin.floats { pose.legs = 0; pose.breathe = false }
+        if flip { pose.look = -pose.look }
+        var sprite = buildSkin(skin, pose)
+        if flip { sprite = sprite.mirrored(23) }
+        if skin.floats {
             lift += 5 + (1.5 * sin(t * 3.2)).rounded()
-            sprite = buildWitch(pose)
-            if facing > 0 { sprite = sprite.mirrored(23) }
             if moving && t > sparkAt {
                 sparkAt = t + 0.05
                 sparks.append(Spark(x: facing > 0 ? -12 : 36, y: CGFloat.random(in: 12...17),
                                     vx: CGFloat(-facing) * CGFloat.random(in: 8...16), vy: CGFloat.random(in: -4...4),
                                     life: 0.5, color: ["L", "Y", "O"].randomElement()!))
             }
-        } else {
-            sprite = buildClawd(pose)
         }
-        if exclaim { addExclaim(&sprite, witch: witch) }
+        if exclaim { addExclaim(&sprite, at: skin.exclaimAt(facing)) }
+        if asleep { addZzz(&sprite, clock: t, at: skin.zzzAt(facing)) }
+        if siuText { addSiu(&sprite) }
+        if skin == .striker {
+            addBall(&sprite, clock: t, moving: moving, facing: facing, asleep: asleep, lift: Int(lift.rounded()))
+        }
 
         let ox = (bounds.midX + xOff - 12 * unit).rounded()
         let oy = baseY + 1 - 16 * unit - (lift.rounded()) * unit
@@ -1344,47 +1725,72 @@ final class PreviewSpriteView: NSView {
             let base = PALETTE[s.color] ?? rgb(0xD97757)
             ctx.setFillColor(base.copy(alpha: max(0, 1 - kk * kk)) ?? base)
             let cx = ox + s.x.rounded() * unit, cy = oy + s.y.rounded() * unit
-            let cells: [(CGFloat, CGFloat)] = kk < 0.45 ? [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]
-                : kk < 0.75 ? [(0, 0), (-1, -1), (1, 1), (-1, 1), (1, -1)] : [(0, 0)]
-            ctx.fill(cells.map { CGRect(x: cx + $0.0 * unit, y: cy + $0.1 * unit, width: unit, height: unit) })
+            ctx.fill(sparkCells(s).map { CGRect(x: cx + $0.0 * unit, y: cy + $0.1 * unit, width: unit, height: unit) })
         }
     }
 }
 
 struct ClawdPreview: NSViewRepresentable {
-    var witch: Bool
+    var skin: Skin
     func makeNSView(context: Context) -> PreviewSpriteView { PreviewSpriteView() }
-    func updateNSView(_ v: PreviewSpriteView, context: Context) { v.witch = witch }
+    func updateNSView(_ v: PreviewSpriteView, context: Context) { v.skin = skin }
+}
+
+/// 皮肤选择：一排排带缩略图的小方块
+struct SkinGrid: View {
+    @Binding var selection: String
+    var today: Skin
+    static let orange = Color(red: 0.79, green: 0.39, blue: 0.26)
+
+    var body: some View {
+        let items = [("auto", "自动", today)] + Skin.allCases.map { ($0.rawValue, $0.title, $0) }
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+            ForEach(items, id: \.0) { id, name, skin in
+                let on = selection == id
+                Button { selection = id } label: {
+                    VStack(spacing: 3) {
+                        Image(nsImage: clawdImage(unit: 1, skin: skin))
+                            .interpolation(.none)
+                            .frame(height: 30, alignment: .bottom)
+                        Text(name).font(.caption).foregroundStyle(on ? Self.orange : .secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(on ? Self.orange.opacity(0.13) : Color.primary.opacity(0.04)))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(on ? Self.orange : .clear, lineWidth: 1.5))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
 }
 
 struct SettingsView: View {
     @ObservedObject var m: SettingsModel
 
-    var witchNow: Bool { m.costume == "witch" || (m.costume == "auto" && Prefs.isHalloweenSeason) }
+    var skinNow: Skin { Skin(rawValue: m.costume) ?? m.today }
 
     var body: some View {
         VStack(spacing: 0) {
-            ClawdPreview(witch: witchNow)
+            ClawdPreview(skin: skinNow)
                 .frame(height: 150)
             Form {
                 Section {
                     Toggle("打字时显示 Clawd", isOn: $m.enabled)
-                    Picker("装扮", selection: $m.costume) {
-                        Text("自动").tag("auto"); Text("经典").tag("classic"); Text("女巫 🧹").tag("witch")
-                    }
-                    .pickerStyle(.segmented)
+                    SkinGrid(selection: $m.costume, today: m.today)
                     Picker("大小", selection: $m.size) {
                         Text("小").tag("s"); Text("中").tag("m"); Text("大").tag("l")
                     }
                     .pickerStyle(.segmented)
                 } footer: {
-                    Text("「自动」会在万圣节前后（10 月 24 日 – 11 月 2 日）换上女巫装，其余时间是经典 Clawd。")
+                    Text("「自动」每天换一套，九套皮肤轮着来（今天是「\(m.today.title)」）；万圣节固定女巫，平安夜和圣诞节固定圣诞帽。停手几秒 Clawd 会打瞌睡；打出「猪咪」试试看。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
                     Toggle("中文模式下使用英文标点", isOn: $m.englishPunct)
                 } footer: {
-                    Text("打开后，打中文时 , . ? ! 等都输出英文标点；关掉则输出 ，。？！。菜单栏里也能一键切换，⌃⇧3 可以临时切换。")
+                    Text("打开后，打中文时 , . ? ! 等都输出英文标点；关掉则输出 ，。？！。顿号例外：按 \\ 始终输出「、」。菜单栏里也能一键切换，⌃⇧3 可以临时切换。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
@@ -1430,7 +1836,7 @@ struct SettingsView: View {
             .formStyle(.grouped)
             .scrollDisabled(true)
         }
-        .frame(width: 480, height: 760)
+        .frame(width: 480, height: 900)
     }
 }
 
@@ -1478,14 +1884,41 @@ func renderSheet(_ path: String) {
     poses.append(("挥钳", buildClawd(Pose(eyes: .happy, armL: 1))))
     poses.append(("女巫", buildWitch(Pose())))
     poses.append(("女巫→", buildWitch(Pose(look: 1)).mirrored(23)))
-    let unit: CGFloat = 6, cellW: CGFloat = 64 * unit, cellH: CGFloat = 40 * unit
-    let cols = 3
+    poses.append(("侧身", buildSide(Pose())))
+    poses.append(("侧身迈步", buildSide(Pose(legs: 1))))
+    poses.append(("侧身举棍→", buildSide(Pose(eyes: .happy, armL: 1, armR: 1)).mirrored(23)))
+    var napSide = Sprite(); napSide.merge(buildSide(Pose(eyes: .closed, sit: true)), dy: 3)
+    addZzz(&napSide, clock: 0.3, at: Skin.side.zzzAt(-1))
+    poses.append(("侧身睡觉", napSide))
+    poses.append(("瞌睡", buildSkin(.sleepy, Pose())))
+    var nap = Sprite(); nap.merge(buildSkin(.sleepy, Pose(eyes: .closed, sit: true)), dy: 2)
+    addZzz(&nap, clock: 0.3, at: Skin.sleepy.zzzAt(1))
+    poses.append(("瞌睡 Zzz", nap))
+    poses.append(("圣诞", buildSkin(.santa, Pose())))
+    poses.append(("学士", buildSkin(.scholar, Pose())))
+    poses.append(("墨镜", buildSkin(.shades, Pose())))
+    var slip = buildSkin(.shades, Pose(eyes: .wide)); addExclaim(&slip, at: Skin.shades.exclaimAt(1))
+    poses.append(("墨镜吓一跳", slip))
+    var striker = buildSkin(.striker, Pose(look: 1)); addBall(&striker, clock: 0.2, moving: false, facing: 1, asleep: false, lift: 0)
+    poses.append(("球王颠球", striker))
+    var dribble = buildSkin(.striker, Pose(look: 1, legs: 1)); addBall(&dribble, clock: 0, moving: true, facing: 1, asleep: false, lift: 0)
+    poses.append(("球王带球", dribble))
+    poses.append(("Siu", buildSkin(.siu, Pose())))
+    var turn = Pose(armL: 1, armR: 1); turn.back = true
+    poses.append(("Siu 转身", buildSkin(.siu, turn)))
+    var land = Pose(eyes: .happy, armL: 2, armR: 2); land.wide = true
+    var landed = buildSkin(.siu, land); addSiu(&landed)
+    poses.append(("Siu 落地", landed))
+    var lovey = buildClawd(Pose(eyes: .happy, armL: 1)); lovey.stamp(HEART_L, 8, -13)
+    poses.append(("猪咪", lovey))
+    let unit: CGFloat = 6, cellW: CGFloat = 64 * unit, cellH: CGFloat = 44 * unit
+    let cols = 4
     let rows = (poses.count + cols - 1) / cols
     let img = NSImage(size: NSSize(width: cellW * CGFloat(cols), height: cellH * CGFloat(rows)), flipped: true) { b in
         NSColor(srgbRed: 0.98, green: 0.976, blue: 0.96, alpha: 1).setFill(); b.fill()
         guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
         for (i, (name, sp)) in poses.enumerated() {
-            let ox = CGFloat(i % cols) * cellW + 18 * unit, oy = CGFloat(i / cols) * cellH + 14 * unit
+            let ox = CGFloat(i % cols) * cellW + 18 * unit, oy = CGFloat(i / cols) * cellH + 20 * unit
             ctx.setShouldAntialias(false)
             for (p, ch) in sp.px {
                 guard let c = PALETTE[ch] else { continue }
@@ -1508,11 +1941,11 @@ if let i = args.firstIndex(of: "--render-icon"), i + 2 < args.count {
     renderIcon(args[i + 1], px: Int(args[i + 2]) ?? 1024); exit(0)
 }
 /// 离屏录制演示动画：逐帧渲染「假候选框 + Clawd」到 PNG，再由脚本合成 GIF
-func renderDemo(_ dir: String, witch: Bool) {
+func renderDemo(_ dir: String, skin: Skin, mode: String) {
     try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-    Prefs.forced = witch ? .witch : .classic
+    Prefs.forced = skin
     let ctl = ClawdController(watch: false, offscreen: true)
-    let W: CGFloat = 400, H: CGFloat = 190, scale: CGFloat = 2
+    let W: CGFloat = 400, H: CGFloat = mode == "love" ? 250 : 190, scale: CGFloat = 2
     let panelRect = NSRect(x: 20, y: 30, width: 360, height: 92)
     let pv = DemoPanelView(frame: NSRect(origin: .zero, size: panelRect.size))
     pv.appearance = NSAppearance(named: .aqua)
@@ -1531,6 +1964,19 @@ func renderDemo(_ dir: String, witch: Bool) {
     for py in ["c", "cl", "cla", "clau", "claud", "claude"] { script.append((t, py, ["Claude", "Claude Code", "Claude Opus"], false)); t += 0.2 }
     t += 1.8
     script.append((t, "claude", ["Claude", "Claude Code"], true)); t += 1.1
+    if mode == "love" {          // 打「猪咪」：爱心特效
+        script.removeAll(); t = 0.4
+        for py in ["z", "zh", "zhu", "zhu m", "zhu mi"] { script.append((t, py, ["猪咪", "竹米", "主"], false)); t += 0.22 }
+        t += 1.8
+        script.append((t, "zhu mi", ["猪咪", "竹米", "主"], true)); t += 2.6
+    } else if mode == "nap" {    // 停手打瞌睡，再被吵醒
+        script.removeAll(); t = 0.4
+        for py in ["w", "wo", "wo k", "wo ku", "wo kun"] { script.append((t, py, ["我困", "我", "窝"], false)); t += 0.24 }
+        t += skin.dozeAfter + 3.2
+        script.append((t, "wo kun l", ["我困了", "我困", "我"], false)); t += 0.3
+        script.append((t, "wo kun le", ["我困了", "我困", "我"], false)); t += 1.0
+        script.append((t, "wo kun le", ["我困了", "我困", "我"], true)); t += 1.0
+    }
     let total = t
 
     let fps: CGFloat = 25
@@ -1624,7 +2070,7 @@ if let i = args.firstIndex(of: "--dump-sprites"), i + 1 < args.count { dumpSprit
 if args.contains("--install-rime") { print(RimeInstaller.install()); exit(0) }
 if args.contains("--uninstall-rime") { print(RimeInstaller.uninstall()); exit(0) }
 if let i = args.firstIndex(of: "--render-demo"), i + 2 < args.count {
-    renderDemo(args[i + 1], witch: args[i + 2] == "witch"); exit(0)
+    renderDemo(args[i + 1], skin: Skin(rawValue: args[i + 2]) ?? .classic, mode: i + 3 < args.count ? args[i + 3] : ""); exit(0)
 }
 if let i = args.firstIndex(of: "--render-sheet"), i + 1 < args.count {
     renderSheet(args[i + 1]); exit(0)

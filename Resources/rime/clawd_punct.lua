@@ -7,6 +7,9 @@
 
   只有在文件内容「变化」时才会切换，所以用快捷键（雾凇拼音默认 ⌃⇧3）临时手动切换不会被改回去。
   文件不存在时什么也不做，沿用方案里的默认值。
+
+  另外：英文标点模式下，中文输入时按 \ 仍然输出顿号「、」（英文键盘上没有顿号键）。
+  正在打的拼音会先按当前选中的候选上屏，再跟上顿号。切到英文输入（Shift）时 \ 还是 \。
 ]]
 
 local function pref_path()
@@ -43,6 +46,14 @@ end
 
 function M.func(key, env)
   apply(env)
+  if key.keycode == 0x5c and not key:release() and not key:ctrl() and not key:alt() and not key:super() then
+    local ctx = env.engine.context
+    if ctx:get_option("ascii_punct") and not ctx:get_option("ascii_mode") then
+      if ctx:is_composing() then ctx:commit() end
+      env.engine:commit_text("、")
+      return 1  -- kAccepted
+    end
+  end
   return 2  -- kNoop：不处理按键，交给后面的处理器
 end
 

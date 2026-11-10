@@ -68,7 +68,12 @@ end
 local STATE_FILE = state_path()
 
 local function write_state(env, ctx, committed)
-  if committed then env.commits = env.commits + 1 end
+  if committed then
+    env.commits = env.commits + 1
+    -- 把刚上屏的文字也报给伴随程序（打出「猪咪」时放爱心用）
+    local ok, text = pcall(function() return ctx:get_commit_text() end)
+    env.commit_text = (ok and text or ""):gsub("[\t\n]", " ")
+  end
   local composing = ctx:is_composing()
   local pre = ""
   if composing then
@@ -76,7 +81,8 @@ local function write_state(env, ctx, committed)
     if p and p.text then pre = p.text:sub(1, p.caret_pos or #p.text) end
   end
   local line = table.concat({ "v1", env.sid, composing and "1" or "0", tostring(env.commits),
-                              (ctx.input:gsub("[\t\n]", " ")), (pre:gsub("[\t\n]", " ")) }, "\t")
+                              (ctx.input:gsub("[\t\n]", " ")), (pre:gsub("[\t\n]", " ")),
+                              env.commit_text or "" }, "\t")
   if line == env.last_line then return end
   env.last_line = line
   env.seq = env.seq + 1

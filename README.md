@@ -10,9 +10,9 @@ Claude 风格的候选框主题 + 一个蹲在候选框上、跟着光标爬的�
 
 macOS（鼠须管 Squirrel）· Windows（小狼毫 Weasel，测试版）
 
-<img src="docs/demo-classic.gif" width="400" alt="经典 Clawd 演示">&nbsp;&nbsp;<img src="docs/demo-witch.gif" width="400" alt="万圣节女巫 Clawd 演示">
+<img src="docs/demo-classic.gif" width="400" alt="经典 Clawd 演示">&nbsp;&nbsp;<img src="docs/demo-witch.gif" width="400" alt="女巫 Clawd 演示">
 
-<sub>左：经典 Clawd　右：万圣节限定女巫装（10/24 – 11/2 自动换装）</sub>
+<sub>左：经典 Clawd　右：女巫装。一共九套皮肤，每天自动换一套</sub>
 
 </div>
 
@@ -22,6 +22,8 @@ macOS（鼠须管 Squirrel）· Windows（小狼毫 Weasel，测试版）
 
 - **Claude 风格主题**：象牙白纸面、白色输入栏、Claude 橙选中胶囊，浅色 / 深色自动切换，带一点点毛玻璃。
 - **会动的 Clawd**：站在候选框上沿、正对光标。你每打一个字母，它就横着爬一步。
+- **九套皮肤，每天换一套**：经典、女巫、侧身、瞌睡、圣诞、学士、墨镜、球王、Siu。选「自动」就每天轮换，也可以固定用某一套。
+- **中文模式下用英文标点**（macOS）：菜单栏里一键切换中英文标点；英文标点模式下按 `\` 仍然输出顿号「、」。
 - **一键安装**：主题和脚本都打包在 App 里，点一下「安装到鼠须管」就配置好。原配置自动备份，卸载时还原。
 - **开机自启、几乎不耗电**：只在你打字时动画，空闲时 CPU 占用为 0。
 - **Apple 芯片和 Intel Mac 都能用**（通用二进制，macOS 13+）。
@@ -39,9 +41,31 @@ macOS（鼠须管 Squirrel）· Windows（小狼毫 Weasel，测试版）
 | 打出 `claude` | 双钳轮流挥舞，冒小火花 |
 | 上屏 | 举起双钳跳一下，撒一圈 ✻ 火花 |
 | 编码很长 | 冒汗 |
-| 万圣节前后 | 戴上女巫帽骑扫帚，身后拖着一串火花 |
+| 停手几秒不动 | 收起腿趴下打瞌睡，头顶飘 Zzz；一按键就醒 |
+| 打出 `zhumi` | 蹦蹦跳跳，四周不停冒爱心；选「猪咪」上屏时放几轮爱心烟花 |
 
-<p align="center"><img src="docs/sprites.png" width="640" alt="全部造型"></p>
+### 皮肤
+
+| 皮肤 | 特点 |
+|---|---|
+| 经典 | 原版 Clawd |
+| 女巫 | 戴女巫帽骑扫帚，飞的时候身后拖一串火花 |
+| 侧身 | 四分之三侧面，前钳撑地，拖着一根小灰棍；欢呼时把棍子举起来 |
+| 瞌睡 | 戴睡帽，停手一秒多就睡着，被按键吵醒时一激灵 |
+| 圣诞 | 圣诞帽 |
+| 学士 | 学士帽和流苏 |
+| 墨镜 | 吓一跳时墨镜滑下来，露出瞪大的眼睛 |
+| 球王 | 蓝白竖条球衣；走路带球，停下来用钳子颠球，上屏时一脚射门 |
+| Siu | 红球衣；上屏时高高跳起、空中转身亮出背后的 7 号，落地双钳一甩喊「SIU!」 |
+
+「自动」模式下九套皮肤每天换一套；万圣节（10 月 31 日）固定女巫，平安夜和圣诞节固定圣诞帽。
+
+<p align="center"><img src="docs/demo-nap.gif" width="266" alt="打瞌睡"> <img src="docs/demo-striker.gif" width="266" alt="球王"> <img src="docs/demo-siu.gif" width="266" alt="Siu"></p>
+<p align="center"><img src="docs/demo-side.gif" width="330" alt="侧身"> <img src="docs/demo-love.gif" width="330" alt="打出猪咪的爱心特效"></p>
+
+<p align="center"><img src="docs/sprites.png" width="720" alt="全部造型"></p>
+
+> 新皮肤、打瞌睡、爱心特效和标点开关目前只在 macOS 版里；Windows 版还是经典和女巫两套。
 
 ## 安装
 

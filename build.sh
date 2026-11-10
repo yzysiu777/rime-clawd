@@ -6,7 +6,7 @@
 #   ./build.sh demo       重新录制 docs/ 里的演示 GIF（需要 python3 + Pillow）
 set -e
 cd "${0:A:h}"
-VERSION="1.0.0"
+VERSION="1.1.0"
 BUILD="$PWD/build"
 APP="$BUILD/Clawd.app"
 
@@ -78,10 +78,12 @@ case "${1:-}" in
     ;;
   demo)
     build
-    for look in classic witch; do
-      rm -rf "$BUILD/frames-$look"
-      "$APP/Contents/MacOS/Clawd" --render-demo "$BUILD/frames-$look" $look
-      python3 scripts/make_gif.py "$BUILD/frames-$look" "docs/demo-$look.gif"
+    # 每行：GIF 名字、皮肤、剧本（空 = 打字和上屏；nap = 打瞌睡；love = 打「猪咪」）
+    for spec in "classic classic" "witch witch" "side side" "striker striker" "siu siu" "nap sleepy nap" "love classic love"; do
+      set -- ${=spec}
+      rm -rf "$BUILD/frames-$1"
+      "$APP/Contents/MacOS/Clawd" --render-demo "$BUILD/frames-$1" $2 ${3:-}
+      ${PYTHON:-python3} scripts/make_gif.py "$BUILD/frames-$1" "docs/demo-$1.gif"
     done
     "$APP/Contents/MacOS/Clawd" --render-sheet docs/sprites.png
     "$APP/Contents/MacOS/Clawd" --render-icon docs/icon.png 256
