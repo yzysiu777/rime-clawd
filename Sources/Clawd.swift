@@ -90,6 +90,7 @@ struct Pose {
     var hideEyes = false  // 墨镜装：眼睛被镜片挡住
     var wide = false      // 两腿叉开站（Siu 落地）
     var back = false      // 背对镜头（Siu 空中转身）
+    var tap = 0           // 电脑装敲键盘：0 手搭在键盘上，1 抬手，2 按下
 }
 
 /// 照 Claude 官方 Clawd 逐像素重画：身体 16×12，钳子各 4×4，眼睛 2×2，四条腿 2×4
@@ -189,7 +190,7 @@ enum Skin: String, CaseIterable {
         switch self {
         case .classic: return "经典"
         case .witch: return "女巫"
-        case .side: return "侧身"
+        case .side: return "电脑"
         case .sleepy: return "瞌睡"
         case .santa: return "圣诞"
         case .scholar: return "学士"
@@ -202,8 +203,8 @@ enum Skin: String, CaseIterable {
     var mirrors: Bool { self == .witch || self == .side }
     /// 骑着扫帚飘在空中：不迈腿、不呼吸
     var floats: Bool { self == .witch }
-    /// 停手多少秒后打瞌睡（瞌睡装几乎一停就睡）
-    var dozeAfter: CGFloat { self == .sleepy ? 1.2 : 6 }
+    /// 停手多少秒后打瞌睡（瞌睡装睡得快一些）
+    var dozeAfter: CGFloat { self == .sleepy ? 5 : 25 }
     /// 睡着时身体往下沉几个像素（腿收起来趴下）
     var sleepSink: Int {
         switch self {
@@ -301,25 +302,33 @@ func buildShades(_ p: Pose) -> Sprite {
     return s
 }
 
-/// 侧身装：四分之三侧面的 Clawd，前钳撑地，拖着一根小灰棍（照你给的截图重画）。造型朝左。
+/// 电脑装：四分之三侧面的 Clawd 对着一台笔记本电脑敲键盘（照你给的截图重画）。造型朝左。
 func buildSide(_ p: Pose) -> Sprite {
     var s = Sprite()
-    let lie = p.sit                                         // 睡觉：收起腿趴下
+    let lie = p.sit                                         // 睡觉：合上电脑，收起腿趴下
     let cheer = p.armL == 1 || p.armR == 1
-    // 小灰棍：平时拖在身前；欢呼时举起来；趴下时平放
     if lie {
-        s.rect(-8, 12, 8, 1, "G")
-    } else if cheer {
-        let k = p.armL == 1 && p.armR == 1 ? 0 : (p.armL == 1 ? 0 : 1)
-        for i in 0..<6 { s.rect(-1 - i, 5 - i + k * (i / 2), 1, 2, "G") }
+        s.rect(-9, 11, 8, 1, "G"); s.rect(-9, 12, 8, 1, "k")
     } else {
-        for i in 0..<5 { s.rect(-7 + i, 10 + i, 1, 2, "G") }
-        s.rect(-3, 15, 3, 1, "G")
+        s.rect(-8, 14, 8, 1, "k")                           // 键盘
+        s.rect(-8, 15, 8, 1, "G")                           // 底座
+        for i in 0..<6 {                                    // 屏幕斜着朝向 Clawd：外壳灰色，里面发着光
+            s.rect(-9 - i, 12 - i, 1, 2, "G")
+            s.rect(-8 - i, 12 - i, 1, 2, p.tap == 2 && i % 2 == 1 ? "w" : "B")
+        }
     }
     s.rect(4, 2, 12, 11, "O")                               // 正面
     s.rect(16, 2, 4, 11, "o")                               // 侧面（暗一档）
     s.rect(0, 7, 4, lie ? 6 : 9, "O")                       // 前钳
     s.rect(0, 7, 4, 1, "o"); s.rect(0, 8, 1, 3, "o")
+    if !lie {
+        if cheer {                                          // 欢呼：把手举起来
+            let up = p.armL == 1 ? 7 : 5
+            s.rect(0, 7 - up, 3, up, "O")
+        } else {                                            // 伸到键盘上的手，打字时一抬一按
+            s.rect(-4, p.tap == 1 ? 11 : 12, 4, 2, "O")
+        }
+    }
     let shift = p.look > 0 ? 1 : 0                          // 回头看时眼睛往后挪一格
     for x in [4 + shift, 12 + shift] {
         switch p.eyes {
@@ -340,6 +349,54 @@ func buildSide(_ p: Pose) -> Sprite {
         }
     }
     return s
+}
+
+// MARK: - 闲着时的小动作
+
+let IDLE_COUNT = 8
+let GLYPH_Q = ["AAA", "..A", ".A.", "...", ".A."]
+let GLYPH_NOTE = ["..A.", "..AA", "..A.", "AAA.", "AAA."]
+
+/// 停手挑候选时，隔几秒随机做一个小动作。返回 nil 表示这个动作做完了；glyph 是头顶冒出来的小符号。
+func idleMove(_ kind: Int, _ t: CGFloat, _ pose: inout Pose, _ lift: inout CGFloat) -> (glyph: [String]?, dummy: Bool)? {
+    var glyph: [String]? = nil
+    switch kind {
+    case 0:                                   // 伸懒腰
+        guard t < 1.0 else { return nil }
+        pose.armL = 1; pose.armR = 1; pose.eyes = .closed; pose.breathe = false
+        if t > 0.3 && t < 0.7 { lift += 1 }
+    case 1:                                   // 挥手
+        guard t < 1.12 else { return nil }
+        pose.eyes = .happy; pose.breathe = false
+        pose.armR = Int(t / 0.14) % 2 == 0 ? 1 : 0
+    case 2:                                   // 连蹦两下
+        guard t < 0.72 else { return nil }
+        let u = (t / 0.36).truncatingRemainder(dividingBy: 1)
+        lift += (5 * 4 * u * (1 - u)).rounded()
+        pose.eyes = .happy
+    case 3:                                   // 跺脚
+        guard t < 0.96 else { return nil }
+        pose.legs = 1 + Int(t / 0.12) % 2
+    case 4:                                   // 左看右看，冒个问号
+        guard t < 1.6 else { return nil }
+        pose.look = t < 0.8 ? -1 : 1
+        if t > 0.15 { glyph = GLYPH_Q }
+    case 5:                                   // 哼歌
+        guard t < 1.8 else { return nil }
+        pose.eyes = .happy
+        let beat = Int(t / 0.3) % 2
+        lift += CGFloat(beat)
+        glyph = beat == 0 ? GLYPH_NOTE : GLYPH_NOTE + ["...."]
+    case 6:                                   // 琢磨：省略号一个一个冒出来
+        guard t < 1.6 else { return nil }
+        let n = min(3, 1 + Int(t / 0.35))
+        let row = String(repeating: "AA.", count: n)
+        glyph = [row, row]
+    default:                                  // 摇摇头
+        guard t < 0.6 else { return nil }
+        pose.look = Int(t / 0.1) % 2 == 0 ? -1 : 1
+    }
+    return (glyph, true)
 }
 
 func buildSkin(_ skin: Skin, _ p: Pose) -> Sprite {
@@ -393,7 +450,7 @@ func addExclaim(_ s: inout Sprite, at pos: (Int, Int)) {
     s.rect(pos.0, pos.1 + 5, 2, 2, "A")
 }
 
-// 睡着时飘起来的 Zzz：三个 Z 一个接一个，越飘越大
+// 睡着时飘起来的 Zzz：两个 Z 一前一后，越飘越大
 let ZZZ: [[String]] = [
     ["ZZZ", ".Z.", "ZZZ"],
     ["ZZZZ", "..Z.", ".Z..", "ZZZZ"],
@@ -401,9 +458,9 @@ let ZZZ: [[String]] = [
 ]
 
 func addZzz(_ s: inout Sprite, clock: CGFloat, at o: (x: Int, y: Int, dir: Int)) {
-    let period: CGFloat = 2.7
-    for i in 0..<3 {
-        let u = ((clock / period) + CGFloat(i) / 3).truncatingRemainder(dividingBy: 1)
+    let period: CGFloat = 3.4
+    for i in 0..<2 {
+        let u = ((clock / period) + CGFloat(i) / 2).truncatingRemainder(dividingBy: 1)
         let glyph = recolor(ZZZ[min(2, Int(u * 3))], ["Z": "A"])
         let w = glyph[0].count
         let rise = Int((u * 15).rounded()), drift = Int((u * 11).rounded())
@@ -827,7 +884,8 @@ enum RimeInstaller {
 // MARK: - 动画控制
 
 final class ClawdController {
-    let window: NSPanel
+    var window: NSPanel
+    var spaceCheckAt: CGFloat = 0
     let view = SpriteView()
     let tracker = PanelTracker()
     let watcher = StateWatcher()
@@ -863,26 +921,48 @@ final class ClawdController {
     var wasAsleep = false, startleUntil: CGFloat = 0
     var loveUntil: CGFloat = 0, loveSparkAt: CGFloat = 0, loveBurstAt: CGFloat = 0
     var landUntil: CGFloat = 0     // Siu 落地定格
+    var idleKind: Int? = nil, idleT: CGFloat = 0, nextIdleAt: CGFloat = 0, lastIdleKind = -1
     var kickUntil: CGFloat = 0     // 球王把球踢出去了，球还没回来
 
     let offscreen: Bool
 
     init(watch: Bool = true, offscreen: Bool = false) {
         self.offscreen = offscreen
-        window = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = false
-        window.ignoresMouseEvents = true
-        window.hidesOnDeactivate = false
-        window.isReleasedWhenClosed = false
-        window.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        window = ClawdController.makeWindow()
         window.contentView = view
-        window.alphaValue = 0
         applySize()
         watcher.onChange = { [weak self] st in self?.receive(st) }
         if watch { watcher.start() }
+    }
+
+    static func makeWindow() -> NSPanel {
+        let w = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        w.isOpaque = false
+        w.backgroundColor = .clear
+        w.hasShadow = false
+        w.ignoresMouseEvents = true
+        w.hidesOnDeactivate = false
+        w.isReleasedWhenClosed = false
+        w.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        w.alphaValue = 0
+        return w
+    }
+
+    /// 悬浮窗有时会留在它第一次出现的那个桌面 / 全屏空间里，换到别的全屏应用就看不见了。
+    /// 出场时、以及显示期间每半秒检查一次：不在当前空间就丢掉旧窗口，重建一个。
+    func ensureOnActiveSpace(_ why: String) {
+        guard !offscreen else { return }
+        if window.isVisible && window.isOnActiveSpace { return }
+        let wasVisible = window.isVisible
+        window.orderOut(nil)
+        window.contentView = nil
+        window = ClawdController.makeWindow()
+        window.contentView = view
+        applySize()
+        window.alphaValue = alpha
+        window.orderFrontRegardless()
+        log("space-\(Int(clock * 2))", "悬浮窗不在当前空间（\(why)，原先 visible=\(wasVisible)），已重建；现在 onActiveSpace=\(window.isOnActiveSpace)")
     }
 
     func applySize() {
@@ -995,7 +1075,7 @@ final class ClawdController {
                 lastKeyAt = clock
                 nextBlink = clock + 0.8          // 一出场先眨个眼
                 nextLook = clock + 1.6
-                if !offscreen { window.orderFrontRegardless() }
+                if !offscreen { window.orderFrontRegardless(); ensureOnActiveSpace("出场"); spaceCheckAt = clock + 0.5 }
             }
             // 光标横坐标 → Clawd 站在光标正上方
             let caretX = panel.minX + metrics.insetX + textWidth(state.preCaret) + 3
@@ -1004,6 +1084,7 @@ final class ClawdController {
             targetX = min(max(caretX - bodyW / 2, lo), hi)
             if !hasX { x = targetX; hasX = true }
             alpha = min(1, alpha + dt / 0.15)
+            if clock > spaceCheckAt { spaceCheckAt = clock + 0.5; ensureOnActiveSpace("显示中") }
         } else {
             // 上屏跳跃时先跳完再淡出
             if jumpT == nil && clock >= loveUntil && clock >= landUntil { alpha = max(0, alpha - dt / 0.2) }
@@ -1097,6 +1178,27 @@ final class ClawdController {
         wasAsleep = asleep
         if clock < startleUntil && jumpT == nil && !asleep { pose.eyes = .wide }
 
+        // 闲着挑候选的时候，隔几秒随机做个小动作
+        var idleGlyph: [String]? = nil
+        let free = idle && showing && want && !asleep && !cheering && !love && jumpT == nil
+            && clock >= backUntil && clock >= landUntil && clock >= startleUntil
+        if !free {
+            idleKind = nil
+            nextIdleAt = clock + CGFloat.random(in: 2.2...4)
+        } else if let k = idleKind {
+            idleT += dt
+            if let r = idleMove(k, idleT, &pose, &lift) { idleGlyph = r.glyph } else {
+                idleKind = nil
+                nextIdleAt = clock + CGFloat.random(in: 2.5...5)
+            }
+        } else if clock > nextIdleAt {
+            var k = Int.random(in: 0..<IDLE_COUNT)
+            if k == lastIdleKind { k = (k + 1) % IDLE_COUNT }
+            idleKind = k; lastIdleKind = k; idleT = 0
+        }
+        // 电脑装：你打字时它也在敲键盘
+        if skin == .side && !asleep && (moving || clock - lastKeyAt < 0.45) { pose.tap = 1 + Int(clock / 0.07) % 2 }
+
         // 上屏：跳一下、举双钳
         let siu = skin == .siu && clock >= loveUntil
         if let t = jumpT {
@@ -1143,6 +1245,7 @@ final class ClawdController {
         if clock < backUntil { addExclaim(&sprite, at: skin.exclaimAt(facing)) }
         if asleep { addZzz(&sprite, clock: clock, at: skin.zzzAt(facing)) }
         if clock < landUntil { addSiu(&sprite) }
+        if let g = idleGlyph { sprite.stamp(g, 15, skin.headTop - g.count - 2) }
         if skin == .striker && clock >= kickUntil {
             addBall(&sprite, clock: clock, moving: moving, facing: facing, asleep: asleep, lift: Int(lift.rounded()))
         }
@@ -1632,21 +1735,21 @@ final class PreviewSpriteView: NSView {
         (dark ? NSColor(white: 0.87, alpha: 0.15) : NSColor(white: 0.12, alpha: 0.15)).setStroke(); path.lineWidth = 1; path.stroke()
 
         let unit: CGFloat = 3
-        let L: CGFloat = 9.8
+        let L: CGFloat = 8.8
         let k = t.truncatingRemainder(dividingBy: L)
         var pose = Pose()
         var xOff: CGFloat = 0, lift: CGFloat = 0, facing = 1, exclaim = false, moving = false, asleep = false
+        var idleGlyph: [String]? = nil
         let seg: Int
         if k < 2.4 {                       // 横着爬来爬去
             seg = 0
             let ph = k / 2.4 * 2 * .pi
             xOff = sin(ph) * 46; facing = cos(ph) >= 0 ? 1 : -1; moving = true
             pose.look = facing; pose.legs = [1, 0, 2, 0][Int(k / 0.08) % 4]
-        } else if k < 3.8 {                // 呼吸、眨眼、张望
+        } else if k < 3.8 {                // 闲时小动作：每一轮换一个
             seg = 1
             pose.breathe = Int(k / 0.5) % 2 == 1
-            if k > 2.7 && k < 2.84 { pose.eyes = .closed }
-            if k > 3.0 && k < 3.45 { pose.look = -1 } else if k > 3.45 { pose.look = 1 }
+            if k > 2.55, let r = idleMove(Int(t / L) % IDLE_COUNT, k - 2.55, &pose, &lift) { idleGlyph = r.glyph }
         } else if k < 5.3 {                // 打出 claude：挥钳欢呼
             seg = 2
             pose.eyes = .happy
@@ -1693,6 +1796,7 @@ final class PreviewSpriteView: NSView {
         }
         let flip = skin.mirrors && facing > 0
         if skin.floats { pose.legs = 0; pose.breathe = false }
+        if skin == .side && (moving || seg == 2) { pose.tap = 1 + Int(t / 0.07) % 2 }
         if flip { pose.look = -pose.look }
         var sprite = buildSkin(skin, pose)
         if flip { sprite = sprite.mirrored(23) }
@@ -1708,6 +1812,7 @@ final class PreviewSpriteView: NSView {
         if exclaim { addExclaim(&sprite, at: skin.exclaimAt(facing)) }
         if asleep { addZzz(&sprite, clock: t, at: skin.zzzAt(facing)) }
         if siuText { addSiu(&sprite) }
+        if let g = idleGlyph { sprite.stamp(g, 15, skin.headTop - g.count - 2) }
         if skin == .striker {
             addBall(&sprite, clock: t, moving: moving, facing: facing, asleep: asleep, lift: Int(lift.rounded()))
         }
@@ -1884,12 +1989,22 @@ func renderSheet(_ path: String) {
     poses.append(("挥钳", buildClawd(Pose(eyes: .happy, armL: 1))))
     poses.append(("女巫", buildWitch(Pose())))
     poses.append(("女巫→", buildWitch(Pose(look: 1)).mirrored(23)))
-    poses.append(("侧身", buildSide(Pose())))
-    poses.append(("侧身迈步", buildSide(Pose(legs: 1))))
-    poses.append(("侧身举棍→", buildSide(Pose(eyes: .happy, armL: 1, armR: 1)).mirrored(23)))
+    poses.append(("电脑", buildSide(Pose())))
+    var typing = Pose(legs: 1); typing.tap = 1
+    poses.append(("电脑打字", buildSide(typing)))
+    poses.append(("电脑欢呼→", buildSide(Pose(eyes: .happy, armL: 1, armR: 1)).mirrored(23)))
     var napSide = Sprite(); napSide.merge(buildSide(Pose(eyes: .closed, sit: true)), dy: 3)
     addZzz(&napSide, clock: 0.3, at: Skin.side.zzzAt(-1))
-    poses.append(("侧身睡觉", napSide))
+    poses.append(("电脑睡觉", napSide))
+    var q = Pose(look: -1); var ql: CGFloat = 0
+    let qg = idleMove(4, 0.5, &q, &ql)?.glyph ?? []
+    var asking = buildClawd(q); asking.stamp(qg, 15, -qg.count - 2)
+    poses.append(("问号", asking))
+    var hm = Pose(); let ng = idleMove(5, 0.1, &hm, &ql)?.glyph ?? []
+    var humming = buildClawd(hm); humming.stamp(ng, 15, -ng.count - 2)
+    poses.append(("哼歌", humming))
+    var st = Pose(); _ = idleMove(0, 0.5, &st, &ql)
+    poses.append(("伸懒腰", buildClawd(st)))
     poses.append(("瞌睡", buildSkin(.sleepy, Pose())))
     var nap = Sprite(); nap.merge(buildSkin(.sleepy, Pose(eyes: .closed, sit: true)), dy: 2)
     addZzz(&nap, clock: 0.3, at: Skin.sleepy.zzzAt(1))
